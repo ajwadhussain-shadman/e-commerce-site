@@ -1,0 +1,165 @@
+@import "tailwindcss";
+
+/* Tell Tailwind v4 to use the `dark` class strategy instead of media queries. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: #faf8f4;
+  --foreground: #29251f;
+  --surface: #ffffff;
+  --surface-warm: #f5ede1;
+  --surface-muted: #f0ebe4;
+  --border: #e8e1d8;
+  --primary: #e98200;
+  --primary-hover: #d17600;
+  --accent: #e98200;
+  --success: #16a34a;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-bengali: var(--font-noto-bengali), "Noto Sans Bengali", "Hind Siliguri", var(--font-sans);
+}
+
+/* --------------------------------------------------------------------------
+   Dark theme tokens. Applied when <html class="dark"> is present.
+   These drive the semantic `bg-background`, `text-foreground`, `border-border`
+   utility classes (mapped below) so the whole site switches consistently.
+   -------------------------------------------------------------------------- */
+.dark {
+  --background: #1c1917;
+  --foreground: #faf8f4;
+  --surface: #29251f;
+  --surface-warm: #3d3630;
+  --surface-muted: #44403a;
+  --border: #57534e;
+  --primary: #f59e0b;
+  --primary-hover: #fbbf24;
+  --accent: #f59e0b;
+  --success: #34d399;
+}
+
+/* Expose design tokens as Tailwind color utilities (bg-background, text-foreground…). */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-warm: var(--surface-warm);
+  --color-surface-muted: var(--surface-muted);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-accent: var(--accent);
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    /* Prevent accidental page-wide horizontal scroll on small screens. */
+    overflow-x: hidden;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  ul, ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Bengali typography: switch to a Bengali-capable font when the language is bn. */
+:lang(bn) body,
+[lang="bn"] {
+  font-family: var(--font-bengali);
+}
+
+/* Custom scrollbar for sleek modern aesthetic */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f5f5f4;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #1e1a17;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d6d3d1;
+  border-radius: 9999px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #4a423b;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a29e;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Line clamp utilities */
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* --------------------------------------------------------------------------
+   Horizontally scrollable, scrollbar-free category rail (mobile / tablet).
+   -------------------------------------------------------------------------- */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;     /* Firefox */
+  -webkit-overflow-scrolling: touch; /* momentum scrolling on iOS */
+  scroll-behavior: smooth;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Respect reduced-motion globally for the collapse animation. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in {
+    animation: none;
+  }
+  .no-scrollbar {
+    scroll-behavior: auto;
+  }
+}
