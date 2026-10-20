@@ -503,6 +503,37 @@ const banners = db.collection("banners");
     }
   });
 
+  router.post("/admin/categories/upload-image", requireAdmin, imageUpload.single("image"), async (req, res) => {
+    if (!configureCloudinary()) return res.status(503).json({ success: false, message: "Image storage is not configured on the server" });
+    const file = req.file;
+    if (!file || !hasImageSignature(file.buffer, file.mimetype)) {
+      return res.status(400).json({ success: false, message: "Upload a valid JPG, PNG, WebP or AVIF image up to 10 MB" });
+    }
+    try {
+      const result = await new Promise((resolve, reject) => {
+        const stream = cloudinaryClient.uploader.upload_stream({
+          folder: "importora/categories",
+          public_id: randomUUID(),
+          overwrite: false,
+          resource_type: "image",
+          allowed_formats: ["jpg", "png", "webp", "avif"],
+        }, (error, result) => {
+          if (error) return reject(error);
+          if (!result?.secure_url || !result?.public_id) return reject(new Error("Cloudinary returned an incomplete upload result"));
+          resolve({ url: result.secure_url, publicId: result.public_id });
+        });
+        stream.end(file.buffer);
+      });
+      return res.status(201).json({ success: true, data: result });
+    } catch (error) {
+      const providerAuthFailure = [401, 403].includes(Number(error?.http_code || error?.status));
+      const message = providerAuthFailure
+        ? "Cloudinary rejected the server configuration. Check the backend Cloudinary environment variables."
+        : "Image provider rejected the upload or is unavailable";
+      return res.status(502).json({ success: false, message });
+    }
+  });
+
   router.post("/admin/images/destroy", requireAdmin, async (req, res, next) => {
     try {
       const publicId = String(req.body?.publicId || "");

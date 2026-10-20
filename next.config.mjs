@@ -14,6 +14,10 @@ const nextConfig = {
         pathname: "/img/banner.png",
         search: "",
       },
+      {
+        pathname: "/img/shoppingcart.png",
+        search: "",
+      },
     ],
     remotePatterns: [
       {

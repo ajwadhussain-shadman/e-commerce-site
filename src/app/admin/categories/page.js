@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { categoryService } from "@/services/productService";
 import { useToast } from "@/context/ToastContext";
 import ConfirmationModal from "@/components/common/ConfirmationModal";
-import { ExternalLink, Plus, Save, Trash2, X, AlertTriangle } from "lucide-react";
+import { ExternalLink, Plus, Save, Trash2, X, AlertTriangle, Upload, Image as ImageIcon, X as XIcon } from "lucide-react";
 
 const emptyCategory = { name: "", slug: "", description: "", image: "", banner: "", subcategories: "" };
 
@@ -17,8 +18,10 @@ export default function AdminCategoriesPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [search, setSearch] = useState("");
-  const [categoryToDelete, setCategoryToDelete] = useState(null);
+const [search, setSearch] = useState("");
+const [categoryToDelete, setCategoryToDelete] = useState(null);
+const [previewImage, setPreviewImage] = useState("");
+const [uploadingImage, setUploadingImage] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -110,6 +113,54 @@ export default function AdminCategoriesPage() {
     }
   };
 
+  const handleImageChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]).has(file.type)) {
+      addToast("Invalid file type. Use JPG, PNG, WebP, or AVIF.", "error");
+      return;
+    }
+    if (!Number.isSafeInteger(file.size) || file.size < 1 || file.size > 10 * 1024 * 1024) {
+      addToast("File too large. Maximum 10 MB.", "error");
+      return;
+    }
+    const objectUrl = URL.createObjectURL(file);
+    setPreviewImage(objectUrl);
+    setForm((current) => ({ ...current, imageFile: file }));
+  };
+
+  const handleImageUpload = async () => {
+    if (!form?.imageFile) return;
+    setUploadingImage(true);
+    try {
+      const uploaded = await categoryService.uploadCategoryImage(form.imageFile);
+      setForm((current) => ({ ...current, image: uploaded.url, imageFile: null }));
+      setPreviewImage(uploaded.url);
+      addToast("Image uploaded successfully.", "success");
+    } catch (error) {
+      addToast(error.message || "Image upload failed.", "error");
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    if (form?.imageFile) {
+      URL.revokeObjectURL(previewImage);
+    }
+    setForm((current) => ({ ...current, image: "", imageFile: null }));
+    setPreviewImage("");
+  };
+
+  const handleImageUrlChange = (event) => {
+    if (form?.imageFile) {
+      URL.revokeObjectURL(previewImage);
+      setForm((current) => ({ ...current, imageFile: null }));
+      setPreviewImage("");
+    }
+    setForm((current) => ({ ...current, image: event.target.value }));
+  };
+
   const hasProducts = Boolean(categoryToDelete && (categoryToDelete.itemCount || 0) > 0);
 
   return (
@@ -158,22 +209,98 @@ export default function AdminCategoriesPage() {
           {[
             ["name", "Name"],
             ["slug", "Slug"],
-            ["image", "Image URL"],
+            ["image", "Category Image"],
             ["banner", "Banner URL"],
-          ].map(([key, label]) => (
-            <label key={key} className="text-xs font-semibold">
-              {label}
-              <input
-                required={key === "name"}
-                type={key === "image" || key === "banner" ? "url" : "text"}
-                value={form[key]}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, [key]: event.target.value }))
-                }
-                className="mt-1 w-full rounded-xl border border-stone-300 bg-stone-50 p-2.5 text-xs"
-              />
-            </label>
-          ))}
+          ].map(([key, label]) => {
+            if (key === "image") {
+              return (
+                <label key={key} className="text-xs font-semibold sm:col-span-2">
+                  {label}
+                  <div className="mt-1 space-y-2">
+                    <div className="relative">
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/avif"
+                        onChange={handleImageChange}
+                        disabled={uploadingImage}
+                        className="w-full rounded-xl border border-stone-300 bg-stone-50 p-2.5 text-xs"
+                      />
+                      {previewImage && (
+                        <div className="relative mt-2">
+                          <div className="w-full max-w-xs aspect-square rounded-xl overflow-hidden border border-stone-200 bg-stone-50">
+                            <Image
+                              src={previewImage}
+                              alt="Preview"
+                              fill
+                              className="object-cover"
+                              onError={(e) => { e.currentTarget.style.display = "none"; }}
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleRemoveImage}
+                            className="absolute top-1 right-1 p-1 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+                            aria-label="Remove image"
+                          >
+                            <XIcon className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    {uploadingImage && (
+                      <div className="h-2 bg-stone-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-amber-500 animate-pulse rounded-full" style={{ width: "50%" }} />
+                      </div>
+                    )}
+                    <p className="text-xs text-stone-500">
+                      Upload a new image from your computer (JPG, PNG, WebP, AVIF · max 10 MB).
+                      Uploading will replace the Image URL below.
+                    </p>
+                    <label className="text-xs font-semibold mt-2 block">
+                      Image URL
+                      <input
+                        type="url"
+                        value={form.image}
+                        onChange={handleImageUrlChange}
+                        placeholder="Or enter an image URL"
+                        className="mt-1 w-full rounded-xl border border-stone-300 bg-stone-50 p-2.5 text-xs"
+                      />
+                    </label>
+                  </div>
+                </label>
+              );
+            }
+            if (key === "banner") {
+              return (
+                <label key={key} className="text-xs font-semibold">
+                  {label}
+                  <input
+                    type="url"
+                    value={form.banner}
+                    onChange={(event) =>
+                      setForm((current) => ({ ...current, banner: event.target.value }))
+                    }
+                    placeholder="Banner image URL (optional)"
+                    className="mt-1 w-full rounded-xl border border-stone-300 bg-stone-50 p-2.5 text-xs"
+                  />
+                </label>
+              );
+            }
+            return (
+              <label key={key} className="text-xs font-semibold">
+                {label}
+                <input
+                  required={key === "name"}
+                  type="text"
+                  value={form[key]}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, [key]: event.target.value }))
+                  }
+                  className="mt-1 w-full rounded-xl border border-stone-300 bg-stone-50 p-2.5 text-xs"
+                />
+              </label>
+            );
+          })}
           <label className="text-xs font-semibold sm:col-span-2">
             Description
             <textarea

@@ -26,6 +26,7 @@ import ProductImage from "@/components/products/ProductImage";
 import { hasAdminRole } from "@/lib/auth-access.mjs";
 import { formatBDT } from "@/lib/currency.mjs";
 import { getPrimaryImage } from "@/lib/product-images.mjs";
+import Logo from "./Logo";
 
 function useCategoryLabel() {
   const { t } = useLanguage();
@@ -127,24 +128,7 @@ export default function SiteHeader({ onOpenMobileMenu, compact = false }) {
             <Menu className="w-6 h-6" />
           </button>
 
-          {/* Brand Logo — the lockup already contains the "Importorá" wordmark
-              and tagline, so no adjacent text wordmark is rendered next to it.
-              It is a square asset, so it needs a little more height than a
-              1:1 icon to stay legible; the row grows with it. */}
-          <Link href="/" className="flex items-center shrink-0">
-            {/* Kept bg-white on purpose: the artwork has a baked-in white
-                background, so the plate stays light in both themes. */}
-            <span className="logo-plate inline-flex items-center justify-center rounded-lg bg-white p-0.5 shadow-xs ring-1 ring-black/5 sm:rounded-xl sm:p-1">
-              <Image
-                src="/img/logo2.png?v=20261015"
-                alt="Importora"
-                width={56}
-                height={56}
-                preload
-                className="h-10 w-10 sm:h-12 sm:w-12 lg:h-16 lg:w-16 object-contain"
-              />
-            </span>
-          </Link>
+          <Logo size="md" />
 
           {/* Desktop Search Bar */}
           <div ref={searchRef} className="hidden md:flex flex-1 max-w-lg relative mx-2 lg:mx-4">

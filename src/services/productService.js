@@ -119,6 +119,17 @@ export const categoryService = {
   async createCategory(category) { return (await request("/categories", { method: "POST", body: JSON.stringify(category) })).data; },
   async updateCategory(slug, category) { return (await request(`/categories/${encodeURIComponent(slug)}`, { method: "PUT", body: JSON.stringify(category) })).data; },
   async deleteCategory(slug) { await request(`/categories/${encodeURIComponent(slug)}`, { method: "DELETE" }); },
+  async uploadCategoryImage(file) {
+    if (!file || !new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]).has(file.type) || !Number.isSafeInteger(file.size) || file.size < 1 || file.size > 10 * 1024 * 1024) {
+      throw new Error("Choose a JPG, PNG, WebP or AVIF image up to 10 MB.");
+    }
+    const body = new FormData();
+    body.append("image", file);
+    const response = await fetch(`${API_BASE}/admin/categories/upload-image`, { method: "POST", credentials: "include", body });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.data?.url) throw new Error(result.message || "Image upload failed");
+    return result.data;
+  },
 };
 
 export const reviewService = {

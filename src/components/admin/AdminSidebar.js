@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -15,6 +14,7 @@ import {
   X,
   Image as ImageIcon
 } from "lucide-react";
+import Logo from "../common/Logo";
 
 export default function AdminSidebar({ isOpen, onClose }) {
   const pathname = usePathname();
@@ -48,24 +48,7 @@ export default function AdminSidebar({ isOpen, onClose }) {
       >
         {/* Brand Header */}
         <div className="p-5 border-b border-stone-800 flex items-center justify-between">
-          <Link href="/admin" className="flex items-center gap-2.5">
-            <div className="w-12 h-12 rounded-lg bg-white p-1 flex items-center justify-center shrink-0">
-              <Image
-                src="/img/logo2.png"
-                alt="Importora"
-                width={48}
-                height={48}
-                className="object-contain"
-                priority
-              />
-            </div>
-            <div>
-              <span className="font-serif font-bold tracking-wider text-sm text-white">IMPORTORA</span>
-              <span className="block text-[10px] text-amber-400 uppercase tracking-widest font-mono">
-                Admin Control
-              </span>
-            </div>
-          </Link>
+          <Logo size="md" className="text-white" href="/admin" />
           <button
             onClick={onClose}
             className="lg:hidden p-1 text-stone-400 hover:text-white"

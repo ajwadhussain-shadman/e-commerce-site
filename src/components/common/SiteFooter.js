@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { categories } from "@/data/categories";
 import { Phone, Mail, MapPin } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useAuth } from "@/context/AuthContext";
 import { hasAdminRole } from "@/lib/auth-access.mjs";
+import Logo from "./Logo";
 
 export default function SiteFooter() {
   const { t } = useLanguage();
@@ -26,16 +26,7 @@ export default function SiteFooter() {
 
           <div className="col-span-1 md:col-span-2 lg:col-span-1">
             <div className="mb-4">
-              {/* Lockup already contains the wordmark — no duplicate text logo. */}
-              <span className="logo-plate inline-flex items-center justify-center rounded-xl bg-white p-1 shadow-xs ring-1 ring-black/5">
-                <Image
-                  src="/img/logo2.png?v=20261015"
-                  alt="Importora"
-                  width={48}
-                  height={48}
-                  className="h-12 w-12 object-contain"
-                />
-              </span>
+              <Logo size="lg" className="text-white" />
             </div>
 
             <p className="text-xs text-stone-400 mb-4 leading-relaxed">

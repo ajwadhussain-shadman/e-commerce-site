@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Upload, Save, Trash2, Edit, Eye, EyeOff, GripVertical, X, ChevronUp, ChevronDown } from "lucide-react";
 import { bannerService } from "@/services/bannerService";
 import { useToast } from "@/context/ToastContext";
+import ConfirmationModal from "@/components/common/ConfirmationModal";
 
 const emptyBanner = { title: "", image: "", isActive: true };
 
@@ -21,6 +22,7 @@ export default function AdminBannersPage() {
   const [previewFiles, setPreviewFiles] = useState([]);
   const [error, setError] = useState("");
   const [dragActive, setDragActive] = useState(false);
+  const [bannerToDelete, setBannerToDelete] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -147,11 +149,16 @@ export default function AdminBannersPage() {
     }
   };
 
-  const handleDelete = async (banner) => {
-    if (!confirm(`Delete “${banner.title}”?`)) return;
+  const handleDelete = (banner) => {
+    setBannerToDelete(banner);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!bannerToDelete) return;
     try {
-      await bannerService.deleteBanner(banner.id);
+      await bannerService.deleteBanner(bannerToDelete.id);
       addToast("Banner deleted.", "success");
+      setBannerToDelete(null);
       await load();
     } catch (deleteError) {
       addToast(deleteError.message || "Could not delete banner.", "error");
@@ -317,6 +324,18 @@ export default function AdminBannersPage() {
           </div>
         </div>
       )}
+
+      {/* Delete Banner Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={Boolean(bannerToDelete)}
+        onClose={() => setBannerToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        title={`Delete “${bannerToDelete?.title || "Banner"}”?`}
+        message={`Are you sure you want to delete “${bannerToDelete?.title || "this banner"}”? This action cannot be undone.`}
+        variant="danger"
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
     </div>
   );
 }
