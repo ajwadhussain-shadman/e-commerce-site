@@ -18,7 +18,6 @@ export const translations = {
       more: "more",
       trackOrder: "Track Order",
       hotline: "Hotline",
-      adminDemo: "Admin Demo",
     },
 
     header: {
@@ -121,6 +120,8 @@ export const translations = {
       heroSubtitle:
         "Discover genuine Japanese matcha KitKats, viral spicy Korean ramen, European rolled oats, UK-imported Horlicks, and iconic sneakers—all handpicked and delivered nationwide with cash on delivery.",
       shopAllImports: "Shop All Imports",
+      heroBannerAlt:
+        "Imported groceries, snacks and skincare delivered across Bangladesh",
       exploreChocolates: "Explore Chocolates & Treats",
       genuine: "100% Genuine",
       genuineDesc: "Authentic import batches",
@@ -153,6 +154,9 @@ export const translations = {
       newArrivals: "New Arrivals",
       viewAllNew: "View All New",
       customerFavorites: "Customer Favorites",
+      goToSlide: "Go to slide",
+      previousProducts: "Previous products",
+      nextProducts: "Next products",
       bestSellers: "All-Time Best Sellers",
       viewAllBestSellers: "View All Best Sellers",
 
@@ -182,7 +186,7 @@ export const translations = {
         "Authentic global products imported directly from Japan, the UK, Europe, Korea, and the US.",
       returnPolicy: "7-Day Return Policy",
       returnPolicyDesc:
-        "Hassle-free demo exchange policy if an item arrives damaged or compromised during transit.",
+        "Hassle-free return and exchange policy if an item arrives damaged or compromised during transit.",
       dedicatedSupport: "Dedicated Support",
       dedicatedSupportDesc:
         "Friendly customer assistance via hotline and WhatsApp from 10:00 AM to 10:00 PM daily.",
@@ -198,7 +202,7 @@ export const translations = {
       inStock: "In Stock",
       added: "Added",
       add: "Add",
-      addToCart: "Add to cart",
+      addToCart: "Add to Cart",
     },
 
     products: {
@@ -341,9 +345,6 @@ export const translations = {
       signingIn: "Signing In...",
       noAccount: "Don't have an account?",
       createAccount: "Create Account",
-      demoAccess: "Quick Demo Access",
-      customerDemo: "Customer Demo",
-      adminDemo: "Admin Demo",
       register: "Create Account",
       registerSubtitle: "Join Importora",
       fullName: "Full Name",
@@ -379,14 +380,15 @@ export const translations = {
     footer: {
       directImports: "Direct Imports • Dhaka, Bangladesh",
       tagline: "Authentic Global Brands at Your Doorstep",
+      address: "Sylhet, Bangladesh",
+      phone: "+880 1700-000000 (10:00 AM – 10:00 PM)",
       brandDesc:
         "We bridge international pantry favorites, artisan confectioneries, Korean ramen, European oats, and lifestyle footwear directly to Bangladesh with fast delivery.",
-      joinVIP: "Join our VIP Club for Weekly Import Drops",
       newsletterDesc:
         "Receive instant stock notifications for rare Japanese snacks, UK pantry items, and flash deals.",
       emailPlaceholder: "Enter your email address",
       subscribe: "Subscribe",
-      thankYouSubscribe: "Thank you for subscribing to Importora demo updates!",
+      thankYouSubscribe: "Thank you for subscribing to Importora updates!",
       categoriesTitle: "Categories",
       viewAllProducts: "View All Products",
       customerCare: "Customer Care",
@@ -399,12 +401,10 @@ export const translations = {
       aboutNovella: "About Importora",
       privacyPolicy: "Privacy Policy",
       termsConditions: "Terms & Conditions",
-      adminDashboard: "Admin Dashboard Demo",
+      adminDashboard: "Admin Dashboard",
       acceptedPayments: "Accepted Payments",
       cashOnDelivery: "Cash on Delivery (All Bangladesh)",
       allRightsReserved: "All rights reserved.",
-      demoDisclaimer:
-        "Client Presentation Demo • Prices, reviews, and tracking are illustrative sample data.",
       novellaImports: "IMPORTORA",
       brandDescFull:
         "Premium retailer of authentic imported consumables, Japanese & Chinese foods, European oats, British nutrition, and footwear. Dedicated to quality and customer trust.",
@@ -432,7 +432,6 @@ export const translations = {
       banners: "Banners",
       settings: "Settings",
       adminPanel: "Admin Panel",
-      demoLabel: "Demo Mode",
       overview: "Overview",
       totalSales: "Total Sales",
       totalOrders: "Total Orders",
@@ -617,6 +616,8 @@ export const translations = {
       heroSubtitle:
         "চকলেট, নুডলস, ওটস, স্কিনকেয়ারসহ পছন্দের বিদেশি পণ্য এখন সহজেই অর্ডার করুন।",
       shopAllImports: "সব দেখুন",
+      heroBannerAlt:
+        "সারা বাংলাদেশে বিদেশি মুদি, স্ন্যাকস ও স্কিনকেয়ার পণ্যের ডেলিভারি",
       exploreChocolates: "চকলেট ও ট্রিটস দেখুন",
       exploreCollections: " কলেকশন দেখুন",
       shopByCategory: "পণ্য ক্যাটাগরি অনুযায়ী কেনাকাটা",
@@ -637,6 +638,9 @@ export const translations = {
       justLanded: "ব্রেকফাস্ট ও নিউট্রিশন",
       newArrivals: "নতুন",
       customerFavorites: "জনপ্রিয় পণ্য",
+      goToSlide: "স্লাইডে যান",
+      previousProducts: "আগের পণ্য",
+      nextProducts: "পরের পণ্য",
       bestSellers: "চকলেট ও ফুটওয়্যার",
       viralKoreanBuldak: "জাপানি ও স্নিকার্স",
       shopBreakfast: "পার্সোনাল কেয়ার",
@@ -814,9 +818,6 @@ export const translations = {
       signingIn: "সাইন ইন হচ্ছে...",
       noAccount: "অ্যাকাউন্ট নেই?",
       createAccount: "অ্যাকাউন্ট তৈরি করুন",
-      demoAccess: "দ্রুত ডেমো অ্যাক্সেস",
-      customerDemo: "কাস্টমার ডেমো",
-      adminDemo: "অ্যাডমিন ডেমো",
       register: "অ্যাকাউন্ট তৈরি করুন",
       registerSubtitle: "ইম্পোর্টোরা-এ যোগ দিন",
       fullName: "পুরো নাম",
@@ -852,6 +853,8 @@ export const translations = {
     footer: {
       directImports: "সরাসরি আমদানি • সিলেট, বাংলাদেশ",
       tagline: "আসল বিশ্বের ব্র্যান্ড আপনার দোরগোড়ায়",
+      address: "সিলেট, বাংলাদেশ",
+      phone: "+৮৮০ ১৭০০-০০০০০০ (সকাল ১০টা – রাত ১০টা)",
       brandDesc:
         "আমরা আন্তর্জাতিক প্যান্ট্রি ফেভারিট, আর্টিসান কনফেকশনারি, কোরিয়ান রামেন, ইউরোপীয় ওটস এবং লাইফস্টাইল ফুটওয়্যার সরাসরি বাংলাদেশে দ্রুত ডেলিভারি দিয়ে পৌঁছে দিই।",
       categoriesTitle: "ক্যাটাগরি",
@@ -866,12 +869,10 @@ export const translations = {
       aboutNovella: "ইম্পোর্টোরা সম্পর্কে",
       privacyPolicy: "গোপনীয়তা নীতি",
       termsConditions: "শর্তাবলী",
-      adminDashboard: "অ্যাডমিন ড্যাশবোর্ড ডেমো",
+      adminDashboard: "অ্যাডমিন ড্যাশবোর্ড",
       acceptedPayments: "গৃহীত পেমেন্ট পদ্ধতি",
       cashOnDelivery: "ক্যাশ অন ডেলিভারি (সারা বাংলাদেশ)",
       allRightsReserved: "সর্বস্বত্ব সংরক্ষিত।",
-      demoDisclaimer:
-        "ক্লায়েন্ট প্রেজেন্টেশন ডেমো • মূল্য, রিভিউ এবং ট্র্যাকিং নমুনা ডেটা।",
       novellaImports: "ইম্পোর্টোরা",
       brandDescFull:
         "আসল আমদানিকৃত ভোগ্যপণ্য, জাপানি ও চাইনিজ ফুড, ইউরোপীয় ওটস, ব্রিটিশ নিউট্রিশন এবং ফুটওয়্যারের প্রিমিয়াম রিটেইলার। মান ও গ্রাহক বিশ্বাসের প্রতি নিবেদিত।",
@@ -899,7 +900,6 @@ export const translations = {
       banners: "ব্যানার",
       settings: "সেটিংস",
       adminPanel: "অ্যাডমিন প্যানেল",
-      demoLabel: "ডেমো মোড",
       overview: "ওভারভিউ",
       totalSales: "মোট বিক্রয়",
       totalOrders: "মোট অর্ডার",

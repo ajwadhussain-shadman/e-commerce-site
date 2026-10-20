@@ -1,41 +1,79 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { productService } from "@/services/productService";
-import { categories } from "@/data/categories";
+import { categoryService, productService } from "@/services/productService";
 import { useToast } from "@/context/ToastContext";
-import { ArrowLeft, Save, Sparkles, Image as ImageIcon } from "lucide-react";
+import ProductImageManager from "@/components/admin/ProductImageManager";
+import { ArrowLeft, Save } from "lucide-react";
 
 export default function AdminNewProductPage() {
   const router = useRouter();
   const { addToast } = useToast();
-
+  const [categories, setCategories] = useState([]);
+  const [categoryLoading, setCategoryLoading] = useState(true);
+  const [categoryError, setCategoryError] = useState("");
   const [formData, setFormData] = useState({
     name: "",
+    slug: "",
     brand: "",
-    category: "chocolates-snacks",
-    subcategory: "KitKat & Chocolate Bars",
+    category: "",
+    subcategory: "",
     price: "",
     discountPrice: "",
-    stock: "25",
-    size: "Standard Pack",
-    countryOfOrigin: "Japan",
+    stock: "0",
+    size: "",
+    countryOfOrigin: "",
     shortDescription: "",
     fullDescription: "",
-    imageUrl: "https://images.unsplash.com/photo-1549007994-cb92caebd54b?auto=format&fit=crop&w=800&q=80",
     isFeatured: false,
-    isNewArrival: true,
-    isBestSeller: false
+    isNewArrival: false,
+    isBestSeller: false,
+    isActive: true,
   });
+  const [imageItems, setImageItems] = useState([]);
+  const [imagesUploading, setImagesUploading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    categoryService.getCategories().then((data) => {
+      if (!active) return;
+      setCategories(Array.isArray(data) ? data : []);
+    }).catch((error) => { if (active) setCategoryError(error.message || "Could not load categories."); })
+      .finally(() => { if (active) setCategoryLoading(false); });
+    return () => { active = false; };
+  }, []);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.price) {
-      alert("Please provide product name and price");
+    if (imagesUploading) {
+      addToast("Wait for the image upload to finish before saving.", "error");
+      return;
+    }
+    if (isSubmitting) return;
+    const missingFields = [
+      ["Product title", formData.name],
+      ["Brand / manufacturer", formData.brand],
+      ["Main category", formData.category],
+      ["Subcategory", formData.subcategory],
+      ["Regular price", formData.price],
+      ["Short description", formData.shortDescription],
+      ["Full description", formData.fullDescription],
+    ].filter(([, value]) => !String(value || "").trim()).map(([label]) => label);
+    if (missingFields.length) {
+      addToast(`Complete these required fields: ${missingFields.join(", ")}.`, "error");
+      return;
+    }
+    const images = imageItems.map((item) => item.url).filter(Boolean);
+    if (!images.length) {
+      addToast("Select at least one valid product image before saving.", "error");
+      return;
+    }
+    if (formData.discountPrice && Number(formData.discountPrice) > Number(formData.price)) {
+      addToast("Sale price cannot be higher than the regular price.", "error");
       return;
     }
 
@@ -43,41 +81,40 @@ export default function AdminNewProductPage() {
     try {
       const newProduct = {
         name: formData.name,
-        brand: formData.brand || "Imported Brand",
+        ...(formData.slug.trim() ? { slug: formData.slug.trim() } : {}),
+        brand: formData.brand,
         category: formData.category,
         subcategory: formData.subcategory,
         price: Number(formData.price),
         discountPrice: formData.discountPrice ? Number(formData.discountPrice) : null,
-        stock: Number(formData.stock) || 20,
+        stock: Number(formData.stock),
         size: formData.size,
         countryOfOrigin: formData.countryOfOrigin,
-        shortDescription: formData.shortDescription || `${formData.name} imported from ${formData.countryOfOrigin}.`,
-        fullDescription: formData.fullDescription || `Authentic premium imported ${formData.name}. Fresh stock directly imported and stored in climate-controlled warehousing in Dhaka.`,
-        images: [formData.imageUrl],
-        rating: 4.8,
-        reviewCount: 1,
+        shortDescription: formData.shortDescription,
+        fullDescription: formData.fullDescription,
+        images,
+        imageAssets: imageItems.filter((item) => item.publicId).map((item) => ({ publicId: item.publicId, url: item.url })),
         isFeatured: formData.isFeatured,
         isNewArrival: formData.isNewArrival,
         isBestSeller: formData.isBestSeller,
-        specifications: {
-          "Origin": formData.countryOfOrigin,
-          "Package Type": formData.size,
-          "Storage": "Climate controlled cool dry place"
-        }
+        isActive: formData.isActive,
+        specifications: Object.fromEntries([...(formData.countryOfOrigin ? [["Origin", formData.countryOfOrigin]] : []), ...(formData.size ? [["Package Type", formData.size]] : [])]),
       };
 
       await productService.createProduct(newProduct);
       addToast(`Added "${newProduct.name}" to inventory!`, "success");
       router.push("/admin/products");
     } catch (err) {
-      console.error(err);
-      alert("Error adding product");
+      addToast(err.message || "Could not add product", "error");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const selectedCategoryObj = categories.find(c => c.slug === formData.category);
+  const selectedSubcategories = Array.isArray(selectedCategoryObj?.subcategories)
+    ? selectedCategoryObj.subcategories.filter((subcategory) => typeof subcategory === "string" && subcategory.trim())
+    : [];
 
   return (
     <div className="space-y-6 max-w-4xl animate-fade-in">
@@ -100,6 +137,7 @@ export default function AdminNewProductPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="bg-white p-6 sm:p-8 rounded-3xl border border-stone-200/90 shadow-xs space-y-6 text-xs">
+        {categoryError && <p role="alert" className="text-rose-700">Could not load categories: {categoryError}</p>}
         
         {/* Row 1: Name and Brand */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -119,10 +157,11 @@ export default function AdminNewProductPage() {
 
           <div>
             <label className="font-semibold text-stone-700 block mb-1">
-              Brand / Manufacturer
+              Brand / Manufacturer *
             </label>
             <input
               type="text"
+              required
               placeholder="e.g. Nestle Japan / Samyang / Quaker"
               value={formData.brand}
               onChange={(e) => setFormData(prev => ({ ...prev, brand: e.target.value }))}
@@ -131,6 +170,8 @@ export default function AdminNewProductPage() {
           </div>
         </div>
 
+        <label className="block font-semibold text-stone-700">Slug (optional; generated from product name)<input value={formData.slug} onChange={(e) => setFormData((prev) => ({ ...prev, slug: e.target.value }))} className="mt-1 w-full rounded-xl border border-stone-300 bg-stone-50 p-2.5" /></label>
+
         {/* Row 2: Category and Subcategory */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
@@ -138,18 +179,20 @@ export default function AdminNewProductPage() {
               Main Category *
             </label>
             <select
+              required
+              disabled={categoryLoading || Boolean(categoryError) || categories.length === 0}
               value={formData.category}
               onChange={(e) => {
                 const catSlug = e.target.value;
-                const cat = categories.find(c => c.slug === catSlug);
                 setFormData(prev => ({
                   ...prev,
                   category: catSlug,
-                  subcategory: cat?.subcategories[0] || ""
+                  subcategory: ""
                 }));
               }}
               className="w-full p-2.5 bg-stone-50 border border-stone-300 rounded-xl focus:outline-hidden focus:border-amber-700"
             >
+              <option value="">{categoryLoading ? "Loading categories…" : categories.length ? "Choose a category" : "No categories available"}</option>
               {categories.map((cat) => (
                 <option key={cat.id} value={cat.slug}>
                   {cat.name}
@@ -160,19 +203,25 @@ export default function AdminNewProductPage() {
 
           <div>
             <label className="font-semibold text-stone-700 block mb-1">
-              Subcategory
+              Subcategory *
             </label>
             <select
+              required
+              disabled={!formData.category || selectedSubcategories.length === 0}
               value={formData.subcategory}
               onChange={(e) => setFormData(prev => ({ ...prev, subcategory: e.target.value }))}
               className="w-full p-2.5 bg-stone-50 border border-stone-300 rounded-xl focus:outline-hidden focus:border-amber-700"
             >
-              {selectedCategoryObj?.subcategories.map((sub, i) => (
+              <option value="">{!formData.category ? "Choose a category first" : selectedSubcategories.length ? "Choose a subcategory" : "No subcategories configured"}</option>
+              {selectedSubcategories.map((sub, i) => (
                 <option key={i} value={sub}>
                   {sub}
                 </option>
               ))}
             </select>
+            {formData.category && !categoryLoading && selectedSubcategories.length === 0 && (
+              <p className="mt-1 text-[10px] text-stone-500">Add subcategories for this category in <Link href="/admin/categories" className="font-semibold text-amber-900 underline">Category management</Link>.</p>
+            )}
           </div>
         </div>
 
@@ -185,6 +234,9 @@ export default function AdminNewProductPage() {
             <input
               type="number"
               required
+              min="0.01"
+              step="0.01"
+              inputMode="decimal"
               placeholder="e.g. 850"
               value={formData.price}
               onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
@@ -198,6 +250,9 @@ export default function AdminNewProductPage() {
             </label>
             <input
               type="number"
+              min="0.01"
+              step="0.01"
+              inputMode="decimal"
               placeholder="e.g. 720"
               value={formData.discountPrice}
               onChange={(e) => setFormData(prev => ({ ...prev, discountPrice: e.target.value }))}
@@ -211,6 +266,8 @@ export default function AdminNewProductPage() {
             </label>
             <input
               type="number"
+              min="0"
+              step="1"
               value={formData.stock}
               onChange={(e) => setFormData(prev => ({ ...prev, stock: e.target.value }))}
               className="w-full p-2.5 bg-stone-50 border border-stone-300 rounded-xl font-mono focus:outline-hidden focus:border-amber-700"
@@ -247,18 +304,13 @@ export default function AdminNewProductPage() {
           </div>
         </div>
 
-        {/* Row 5: Image URL */}
-        <div>
-          <label className="font-semibold text-stone-700 block mb-1">
-            Product Image URL (High resolution image asset)
-          </label>
-          <input
-            type="url"
-            value={formData.imageUrl}
-            onChange={(e) => setFormData(prev => ({ ...prev, imageUrl: e.target.value }))}
-            className="w-full p-2.5 bg-stone-50 border border-stone-300 rounded-xl font-mono focus:outline-hidden focus:border-amber-700"
-          />
-        </div>
+        {/* Product images */}
+        <ProductImageManager
+          items={imageItems}
+          onChange={setImageItems}
+          onBusyChange={setImagesUploading}
+          disabled={isSubmitting}
+        />
 
         {/* Descriptions */}
         <div>
@@ -267,6 +319,7 @@ export default function AdminNewProductPage() {
           </label>
           <input
             type="text"
+            required
             placeholder="Brief 1-sentence product summary"
             value={formData.shortDescription}
             onChange={(e) => setFormData(prev => ({ ...prev, shortDescription: e.target.value }))}
@@ -274,8 +327,11 @@ export default function AdminNewProductPage() {
           />
         </div>
 
+        <label className="block font-semibold text-stone-700">Full description<textarea required rows={4} value={formData.fullDescription} onChange={(e) => setFormData((current) => ({ ...current, fullDescription: e.target.value }))} className="mt-1 w-full rounded-xl border border-stone-300 bg-stone-50 p-2.5" /></label>
+
         {/* Toggles */}
         <div className="flex flex-wrap items-center gap-6 pt-2">
+          <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={formData.isActive} onChange={(e) => setFormData((prev) => ({ ...prev, isActive: e.target.checked }))} /><span className="font-semibold text-stone-800">Active in storefront</span></label>
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
@@ -316,11 +372,11 @@ export default function AdminNewProductPage() {
           </Link>
           <button
             type="submit"
-            disabled={isSubmitting}
-            className="px-6 py-2.5 bg-stone-900 hover:bg-stone-800 text-white rounded-xl font-bold transition-all shadow-sm flex items-center gap-2"
+            disabled={isSubmitting || imagesUploading}
+            className="px-6 py-2.5 bg-stone-900 hover:bg-stone-800 text-white rounded-xl font-bold transition-all shadow-sm flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Save className="w-4 h-4" />
-            <span>{isSubmitting ? "Saving SKU..." : "Save Product SKU"}</span>
+            <span>{imagesUploading ? "Uploading images..." : isSubmitting ? "Saving SKU..." : "Save Product SKU"}</span>
           </button>
         </div>
 

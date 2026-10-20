@@ -9,9 +9,7 @@ import SiteFooter from "@/components/common/SiteFooter";
 import Breadcrumbs from "@/components/common/Breadcrumbs";
 import ProductCard from "@/components/products/ProductCard";
 import EmptyState from "@/components/common/EmptyState";
-import { productService } from "@/services/productService";
-import { categories } from "@/data/categories";
-import { brands } from "@/data/products";
+import { categoryService, productService } from "@/services/productService";
 import { 
   SlidersHorizontal, 
   X, 
@@ -30,6 +28,8 @@ function ProductsContent() {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [allProducts, setAllProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [categories, setCategories] = useState([]);
 
   // Filters state initialized from searchParams
   const categoryParam = searchParams.get("category") || "";
@@ -46,23 +46,30 @@ function ProductsContent() {
   const [sortBy, setSortBy] = useState("popularity");
   const [visibleCount, setVisibleCount] = useState(12);
 
-  // Sync state with URL query
-  useEffect(() => {
-    setSelectedCategory(categoryParam);
-    setSelectedSubcategory(subcategoryParam);
-    setSelectedBrand(brandParam);
-  }, [categoryParam, subcategoryParam, brandParam]);
-
   // Load products from service
   useEffect(() => {
+    let active = true;
     async function load() {
-      setIsLoading(true);
-      const data = await productService.getAllProducts();
-      setAllProducts(data);
-      setIsLoading(false);
+      try {
+        const [data, categoryData] = await Promise.all([
+          productService.getAllProducts(),
+          categoryService.getCategories(),
+        ]);
+        if (active) {
+          setAllProducts(data);
+          setCategories(categoryData);
+        }
+      } catch {
+        if (active) setLoadError(true);
+      } finally {
+        if (active) setIsLoading(false);
+      }
     }
     load();
+    return () => { active = false; };
   }, []);
+
+  const brands = useMemo(() => [...new Set(allProducts.map((product) => product.brand).filter(Boolean))].sort(), [allProducts]);
 
   // Filtered and sorted products
   const filteredProducts = useMemo(() => {
@@ -75,6 +82,8 @@ function ProductsContent() {
       result = result.filter(p => p.isNewArrival);
     } else if (filterParam === "bestsellers") {
       result = result.filter(p => p.isBestSeller);
+    } else if (filterParam === "trending") {
+      result = result.filter(p => p.isFeatured);
     }
 
     if (searchParam) {
@@ -148,7 +157,7 @@ function ProductsContent() {
   );
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#fcfbf9]">
+    <div className="min-h-screen flex flex-col bg-background">
       <SiteHeader onOpenMobileMenu={() => setMobileMenuOpen(true)} />
       <CategoryNavigation />
       <MobileNavigation isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
@@ -393,7 +402,11 @@ function ProductsContent() {
 
           {/* Product Grid */}
           <div className="lg:col-span-3">
-            {displayedProducts.length > 0 ? (
+            {isLoading ? (
+              <p role="status" className="py-12 text-center text-sm text-stone-500">Loading products...</p>
+            ) : loadError ? (
+              <EmptyState title="Products unavailable" description="We could not load products from the store. Please try again shortly." />
+            ) : displayedProducts.length > 0 ? (
               <>
                 <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
                   {displayedProducts.map((product) => (
@@ -516,7 +529,7 @@ function ProductsContent() {
 
 export default function ProductsPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#fcfbf9] p-12 text-center text-sm text-stone-500">Loading catalog...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-background p-12 text-center text-sm text-stone-500">Loading catalog...</div>}>
       <ProductsContent />
     </Suspense>
   );

@@ -21,8 +21,15 @@ export default function LanguageSwitcher({ variant = "inline", className = "" })
     function handleClickOutside(event) {
       if (ref.current && !ref.current.contains(event.target)) setOpen(false);
     }
+    function handleKeyDown(event) {
+      if (event.key === "Escape") setOpen(false);
+    }
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
   }, []);
 
   const options = [
@@ -42,7 +49,7 @@ export default function LanguageSwitcher({ variant = "inline", className = "" })
             aria-pressed={language === opt.code}
             className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-colors ${
               language === opt.code
-                ? "bg-primary text-white border-primary"
+                ? "bg-primary text-on-primary border-primary"
                 : "bg-surface text-foreground border-border hover:bg-surface-warm"
             }`}
           >

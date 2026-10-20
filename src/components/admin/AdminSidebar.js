@@ -1,20 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { 
-  LayoutDashboard, 
-  Package, 
-  PlusCircle, 
-  Tags, 
-  Globe2, 
-  ShoppingBag, 
-  Users, 
-  TicketPercent, 
-  Image as ImageIcon, 
-  Settings, 
+import {
+  LayoutDashboard,
+  Package,
+  PlusCircle,
+  Tags,
+  ShoppingBag,
+  Users,
+  Star,
   ArrowLeft,
-  X
+  X,
+  Image as ImageIcon
 } from "lucide-react";
 
 export default function AdminSidebar({ isOpen, onClose }) {
@@ -25,12 +24,11 @@ export default function AdminSidebar({ isOpen, onClose }) {
     { label: "All Products", href: "/admin/products", icon: Package },
     { label: "Add New Product", href: "/admin/products/new", icon: PlusCircle },
     { label: "Categories", href: "/admin/categories", icon: Tags },
-    { label: "Imported Brands", href: "/admin/brands", icon: Globe2 },
+    { label: "Banners", href: "/admin/banners", icon: ImageIcon },
     { label: "Orders & Shipping", href: "/admin/orders", icon: ShoppingBag },
+    { label: "Reviews", href: "/admin/reviews", icon: Star },
     { label: "Customer Accounts", href: "/admin/customers", icon: Users },
-    { label: "Discount Coupons", href: "/admin/coupons", icon: TicketPercent },
-    { label: "Hero Banners", href: "/admin/banners", icon: ImageIcon },
-    { label: "Store Settings", href: "/admin/settings", icon: Settings },
+    { label: "User Roles", href: "/admin/users", icon: Users },
   ];
 
   return (
@@ -51,11 +49,18 @@ export default function AdminSidebar({ isOpen, onClose }) {
         {/* Brand Header */}
         <div className="p-5 border-b border-stone-800 flex items-center justify-between">
           <Link href="/admin" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-amber-500 text-stone-950 font-serif font-bold text-lg flex items-center justify-center">
-              N
+            <div className="w-12 h-12 rounded-lg bg-white p-1 flex items-center justify-center shrink-0">
+              <Image
+                src="/img/logo2.png"
+                alt="Importora"
+                width={48}
+                height={48}
+                className="object-contain"
+                priority
+              />
             </div>
             <div>
-              <span className="font-serif font-bold tracking-wider text-sm text-white">NOVELLA</span>
+              <span className="font-serif font-bold tracking-wider text-sm text-white">IMPORTORA</span>
               <span className="block text-[10px] text-amber-400 uppercase tracking-widest font-mono">
                 Admin Control
               </span>

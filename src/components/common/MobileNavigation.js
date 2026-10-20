@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { categories } from "@/data/categories";
 import { X, User, Heart, ShoppingBag, ShieldCheck, Phone, ChevronRight } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -9,6 +10,7 @@ import { useCart } from "@/context/CartContext";
 import { useLanguage } from "@/context/LanguageContext";
 import LanguageSwitcher from "./LanguageSwitcher";
 import ThemeToggle from "./ThemeToggle";
+import { hasAdminRole } from "@/lib/auth-access.mjs";
 
 export default function MobileNavigation({ isOpen, onClose }) {
   const { user, isAuthenticated } = useAuth();
@@ -37,15 +39,19 @@ export default function MobileNavigation({ isOpen, onClose }) {
         {/* Header */}
         <div className="p-4 bg-foreground dark:bg-surface-warm text-white flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary text-white font-serif font-bold text-lg flex items-center justify-center">
-              I
-            </div>
-            <div>
-              <span className="font-serif font-bold tracking-wider text-base text-white">IMPORTORA</span>
-              <p className="text-[10px] text-primary tracking-widest uppercase">
-                {t("header.importedGoods")}
-              </p>
-            </div>
+            {/* Lockup already contains the wordmark — no duplicate text logo. */}
+            <span className="logo-plate inline-flex items-center justify-center rounded-lg bg-white p-0.5 shadow-xs">
+              <Image
+                src="/img/logo2.png?v=20261015"
+                alt="Importora"
+                width={40}
+                height={40}
+                className="h-10 w-10 object-contain"
+              />
+            </span>
+            <p className="text-[10px] text-primary tracking-widest uppercase">
+              {t("header.importedGoods")}
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -79,13 +85,13 @@ export default function MobileNavigation({ isOpen, onClose }) {
             >
               {t("mobileNav.account")}
             </Link>
-            <Link
+            {hasAdminRole(user) && <Link
               href="/admin"
               onClick={onClose}
               className="py-2 px-2 bg-primary/10 dark:bg-primary/20 rounded-lg border border-primary/30 dark:border-primary/30 text-primary dark:text-primary font-semibold hover:bg-primary/20 dark:hover:bg-primary/30"
             >
               {t("mobileNav.adminPanel")}
-            </Link>
+            </Link>}
           </div>
         </div>
 
@@ -158,7 +164,7 @@ export default function MobileNavigation({ isOpen, onClose }) {
                   <span className="flex items-center gap-2">
                     <Heart className="w-4 h-4 text-stone-500" /> {t("mobileNav.wishlist")}
                   </span>
-                  <span className="text-xs bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 font-bold px-2 py-0.5 rounded-full">
+                  <span className="text-xs bg-surface-muted text-muted-foreground font-bold px-2 py-0.5 rounded-full">
                     {wishlistCount}
                   </span>
                 </Link>

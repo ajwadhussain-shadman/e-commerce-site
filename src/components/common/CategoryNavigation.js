@@ -68,13 +68,13 @@ export default function CategoryNavigation() {
       >
         {/* Left edge fade cue */}
         <div
-          className={`pointer-events-none absolute left-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-r from-surface-muted/50 dark:from-surface-muted/50 to-transparent transition-opacity ${
+          className={`pointer-events-none absolute left-0 top-0 bottom-0 w-8 z-10 bg-linear-to-r from-surface-muted/50 dark:from-surface-muted/50 to-transparent transition-opacity ${
             canScrollLeft ? "opacity-100" : "opacity-0"
           }`}
         />
         {/* Right edge fade cue */}
         <div
-          className={`pointer-events-none absolute right-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-l from-surface-muted/50 dark:from-surface-muted/50 to-transparent transition-opacity ${
+          className={`pointer-events-none absolute right-0 top-0 bottom-0 w-8 z-10 bg-linear-to-l from-surface-muted/50 dark:from-surface-muted/50 to-transparent transition-opacity ${
             canScrollRight ? "opacity-100" : "opacity-0"
           }`}
         />
@@ -87,7 +87,7 @@ export default function CategoryNavigation() {
             href="/products"
             className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
               pathname === "/products"
-                ? "bg-primary text-white border-primary"
+                ? "bg-primary text-on-primary border-primary"
                 : "bg-surface dark:bg-surface text-foreground dark:text-foreground border-border dark:border-border hover:bg-surface-muted dark:hover:bg-surface-muted"
             }`}
           >
@@ -102,7 +102,7 @@ export default function CategoryNavigation() {
                 href={`/categories/${cat.slug}`}
                 className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                   isActive
-                    ? "bg-primary text-white border-primary font-semibold"
+                    ? "bg-primary text-on-primary border-primary font-semibold"
                     : "bg-surface dark:bg-surface text-foreground dark:text-foreground border-border dark:border-border hover:bg-surface-muted dark:hover:bg-surface-muted"
                 }`}
               >
@@ -164,6 +164,16 @@ export default function CategoryNavigation() {
                     onMouseEnter={() => setActiveDropdown(cat.id)}
                     onMouseLeave={() => setActiveDropdown(null)}
                     onFocus={() => setActiveDropdown(cat.id)}
+                    // Keyboard users need the same escape hatch the mouse has:
+                    // tabbing out or pressing Escape closes the mega dropdown.
+                    onBlur={(e) => {
+                      if (!e.currentTarget.contains(e.relatedTarget)) {
+                        setActiveDropdown(null);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") setActiveDropdown(null);
+                    }}
                   >
                     <Link
                       href={`/categories/${cat.slug}`}

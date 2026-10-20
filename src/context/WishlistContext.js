@@ -15,7 +15,8 @@ export function WishlistProvider({ children }) {
     try {
       const stored = localStorage.getItem(WISHLIST_STORAGE_KEY);
       if (stored) {
-        setWishlist(JSON.parse(stored));
+        const storedWishlist = JSON.parse(stored);
+        queueMicrotask(() => setWishlist(storedWishlist));
       }
     } catch (e) {
       console.warn("Could not load wishlist from storage", e);

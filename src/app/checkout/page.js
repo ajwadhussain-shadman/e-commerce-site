@@ -1,25 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import SiteHeader from "@/components/common/SiteHeader";
 import SiteFooter from "@/components/common/SiteFooter";
 import Breadcrumbs from "@/components/common/Breadcrumbs";
+import ProductImage from "@/components/products/ProductImage";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/context/ToastContext";
 import { orderService } from "@/services/orderService";
-import { 
-  ShieldCheck, 
-  Truck, 
-  CreditCard, 
-  Banknote, 
-  CheckCircle2, 
-  ArrowRight,
-  AlertCircle,
-  Sparkles
-} from "lucide-react";
+import { formatBDT, toMinorUnits, fromMinorUnits } from "@/lib/currency.mjs";
+import { getPrimaryImage } from "@/lib/product-images.mjs";
+import { Truck, Banknote, CheckCircle2, ArrowRight, Sparkles } from "lucide-react";
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -35,22 +29,24 @@ export default function CheckoutPage() {
     setDeliveryArea
   } = useCart();
   const { user } = useAuth();
+  const { addToast } = useToast();
 
   // Form states initialized with user data if available
   const [formData, setFormData] = useState({
-    fullName: user?.name || "Tanvir Ahmed",
-    phone: user?.phone || "+880 1712 345678",
-    email: user?.email || "tanvir.ahmed@example.com",
+    fullName: user?.name || "",
+    phone: user?.phone || "",
+    email: user?.email || "",
     district: user?.district || "Dhaka",
-    area: user?.area || "Banani",
-    address: user?.address || "House 42, Road 11, Block D",
+    area: user?.area || "",
+    address: user?.address || "",
     notes: ""
   });
 
   const [shippingSpeed, setShippingSpeed] = useState("standard"); // "standard" or "express"
-  const [paymentMethod, setPaymentMethod] = useState("cod"); // "cod", "bkash", "card"
+  const [paymentMethod, setPaymentMethod] = useState("cod");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState({});
+  const orderRequestKey = useRef(null);
 
   const validateForm = () => {
     const errors = {};
@@ -70,43 +66,45 @@ export default function CheckoutPage() {
     }
   };
 
-  const expressSurcharge = shippingSpeed === "express" ? 80 : 0;
-  const finalTotal = total + expressSurcharge;
+  const expressFee = fromMinorUnits(8000);
+  const expressSurchargeMinor = shippingSpeed === "express" ? 8000 : 0;
+  const expressSurcharge = fromMinorUnits(expressSurchargeMinor);
+  const finalTotal = fromMinorUnits((toMinorUnits(total) || 0) + expressSurchargeMinor);
 
   const handleSubmitOrder = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
     if (items.length === 0) {
-      alert("Your cart is empty. Please add items before checking out.");
+      addToast("Your cart is empty. Please add items before checking out.", "error");
       return;
     }
 
     setIsSubmitting(true);
 
     try {
+      if (!orderRequestKey.current) {
+        orderRequestKey.current = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      }
       const orderPayload = {
         customer: formData,
         items: items.map(item => ({
           id: item.product.id,
-          name: item.product.name,
-          price: item.product.discountPrice || item.product.price,
           quantity: item.quantity,
-          image: item.product.images[0]
         })),
-        subtotal,
-        discount,
-        shippingFee: shippingFee + expressSurcharge,
-        total: finalTotal,
         couponCode: appliedCoupon?.code || null,
-        paymentMethod: paymentMethod === "cod" ? "Cash on Delivery" : paymentMethod === "bkash" ? "bKash Online (Demo)" : "Card (Demo)"
+        shippingSpeed,
+        idempotencyKey: orderRequestKey.current,
+        paymentMethod: "Cash on Delivery"
       };
 
       const newOrder = await orderService.createOrder(orderPayload);
+      orderRequestKey.current = null;
       clearCart();
+      addToast("Order placed successfully!", "success");
       router.push(`/order-success?id=${newOrder.id}`);
     } catch (err) {
-      console.error("Order creation failed", err);
-      alert("Failed to submit demo order. Please try again.");
+      console.error("Order creation failed");
+      addToast(err.message || "Failed to submit order. Please try again.", "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -114,7 +112,7 @@ export default function CheckoutPage() {
 
   if (items.length === 0) {
     return (
-      <div className="min-h-screen flex flex-col bg-[#fcfbf9]">
+      <div className="min-h-screen flex flex-col bg-background">
         <SiteHeader />
         <main className="flex-1 max-w-4xl mx-auto px-4 py-16 text-center">
           <h2 className="text-2xl font-serif font-bold text-stone-900">Your Cart is Empty</h2>
@@ -129,7 +127,7 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#fcfbf9]">
+    <div className="min-h-screen flex flex-col bg-background">
       <SiteHeader />
 
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
@@ -308,7 +306,7 @@ export default function CheckoutPage() {
                       <Truck className="w-4 h-4 text-amber-700" /> Standard Delivery
                     </span>
                     <span className="font-bold text-stone-950">
-                      {shippingFee === 0 ? "FREE" : `৳${shippingFee}`}
+                      {shippingFee === 0 ? "FREE" : formatBDT(shippingFee)}
                     </span>
                   </div>
                   <p className="text-[11px] text-stone-500">
@@ -329,7 +327,7 @@ export default function CheckoutPage() {
                       <Sparkles className="w-4 h-4 text-emerald-700" /> Express 24h Dispatch
                     </span>
                     <span className="font-bold text-stone-950">
-                      ৳{shippingFee + 80}
+                      {formatBDT(shippingFee + expressFee)}
                     </span>
                   </div>
                   <p className="text-[11px] text-stone-500">
@@ -378,69 +376,7 @@ export default function CheckoutPage() {
                   </div>
                 </label>
 
-                {/* bKash / Nagad Demo */}
-                <label
-                  onClick={() => setPaymentMethod("bkash")}
-                  className={`p-4 rounded-2xl border cursor-pointer flex items-center justify-between transition-all ${
-                    paymentMethod === "bkash"
-                      ? "bg-amber-50/70 border-amber-800 ring-2 ring-amber-500/10"
-                      : "border-stone-200 hover:bg-stone-50"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-pink-100 text-pink-700 flex items-center justify-center font-bold">
-                      bK
-                    </div>
-                    <div>
-                      <div className="font-bold text-stone-900 flex items-center gap-2">
-                        <span>bKash / Nagad Instant Mobile Banking</span>
-                        <span className="text-[10px] bg-amber-200 text-amber-900 px-2 py-0.5 rounded font-mono font-bold">
-                          DEMO ONLY
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-stone-500">
-                        Simulated digital payment flow for client presentation demo.
-                      </div>
-                    </div>
-                  </div>
-                  <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
-                    paymentMethod === "bkash" ? "border-amber-800 bg-amber-800 text-white" : "border-stone-300"
-                  }`}>
-                    {paymentMethod === "bkash" && <CheckCircle2 className="w-3.5 h-3.5" />}
-                  </div>
-                </label>
-
-                {/* Card Demo */}
-                <label
-                  onClick={() => setPaymentMethod("card")}
-                  className={`p-4 rounded-2xl border cursor-pointer flex items-center justify-between transition-all ${
-                    paymentMethod === "card"
-                      ? "bg-amber-50/70 border-amber-800 ring-2 ring-amber-500/10"
-                      : "border-stone-200 hover:bg-stone-50"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center">
-                      <CreditCard className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="font-bold text-stone-900 flex items-center gap-2">
-                        <span>Visa / Mastercard / Amex</span>
-                        <span className="text-[10px] bg-amber-200 text-amber-900 px-2 py-0.5 rounded font-mono font-bold">
-                          DEMO ONLY
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-stone-500">
-                        Simulated SSLCommerz / PortPos gateway for client demo presentation.
-                      </div>
-                    </div>
-                  </div>
-                  <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
-                    paymentMethod === "card" ? "border-amber-800 bg-amber-800 text-white" : "border-stone-300"
-                  }`}>
-                    {paymentMethod === "card" && <CheckCircle2 className="w-3.5 h-3.5" />}
-                  </div>
-                </label>
+                <p className="text-[11px] text-stone-500">Online payment is not available yet. No payment will be collected until a payment provider is connected.</p>
               </div>
             </div>
 
@@ -457,20 +393,19 @@ export default function CheckoutPage() {
               {items.map((item) => (
                 <div key={item.id} className="py-3 flex items-center gap-3 text-xs">
                   <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-stone-100 shrink-0 border border-stone-200">
-                    <Image
-                      src={item.product.images[0]}
+                    <ProductImage
+                      src={getPrimaryImage(item.product)}
                       alt={item.product.name}
-                      fill
                       sizes="48px"
                       className="object-cover"
                     />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-stone-900 truncate">{item.product.name}</p>
-                    <p className="text-stone-500 text-[11px]">Qty: {item.quantity} × ৳{item.product.discountPrice || item.product.price}</p>
+                    <p className="text-stone-500 text-[11px]">Qty: {item.quantity} × {formatBDT(item.product.discountPrice || item.product.price)}</p>
                   </div>
                   <div className="font-bold text-stone-950 font-serif">
-                    ৳{(item.product.discountPrice || item.product.price) * item.quantity}
+                    {formatBDT((item.product.discountPrice || item.product.price) * item.quantity)}
                   </div>
                 </div>
               ))}
@@ -480,29 +415,29 @@ export default function CheckoutPage() {
             <div className="space-y-2 text-xs text-stone-600 border-t border-stone-100 pt-4">
               <div className="flex justify-between">
                 <span>Subtotal</span>
-                <span className="font-semibold text-stone-900">৳{subtotal}</span>
+                <span className="font-semibold text-stone-900">{formatBDT(subtotal)}</span>
               </div>
               {discount > 0 && (
                 <div className="flex justify-between text-emerald-700 font-semibold">
                   <span>Discount ({appliedCoupon?.code})</span>
-                  <span>-৳{discount}</span>
+                  <span>-{formatBDT(discount)}</span>
                 </div>
               )}
               <div className="flex justify-between">
                 <span>Shipping ({deliveryArea === "dhaka" ? "Dhaka" : "Outside Dhaka"})</span>
                 <span className="font-semibold text-stone-900">
-                  {shippingFee === 0 ? "FREE" : `৳${shippingFee}`}
+                  {shippingFee === 0 ? "FREE" : formatBDT(shippingFee)}
                 </span>
               </div>
               {shippingSpeed === "express" && (
                 <div className="flex justify-between text-amber-800 font-medium">
                   <span>Express Dispatch Surcharge</span>
-                  <span>৳80</span>
+                  <span>{formatBDT(expressSurcharge)}</span>
                 </div>
               )}
               <div className="border-t border-stone-200 pt-3 flex justify-between items-baseline text-base font-bold text-stone-950 font-serif">
                 <span>Total Due</span>
-                <span className="text-2xl text-amber-900">৳{finalTotal}</span>
+                <span className="text-2xl text-amber-900">{formatBDT(finalTotal)}</span>
               </div>
             </div>
 
@@ -513,18 +448,18 @@ export default function CheckoutPage() {
               className="w-full py-4 bg-stone-950 hover:bg-stone-800 disabled:bg-stone-400 text-white rounded-full font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all"
             >
               {isSubmitting ? (
-                <span>Placing Demo Order...</span>
+                <span>Placing Order...</span>
               ) : (
                 <>
-                  <span>Place Demo Order</span>
+                  <span>Place Order</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </button>
 
             <div className="p-3 bg-stone-50 rounded-xl text-[11px] text-stone-500 border border-stone-200 leading-relaxed">
-              <p className="font-semibold text-stone-700 mb-0.5">Presentation Demo Disclaimer:</p>
-              This order will be registered in local state and can be tracked on the tracking page and managed from the admin control panel.
+              <p className="font-semibold text-stone-700 mb-0.5">Cash on Delivery:</p>
+              Your order is saved to the store database. Payment is due to the courier on delivery.
             </div>
 
           </div>

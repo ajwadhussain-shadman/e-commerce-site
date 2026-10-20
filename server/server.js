@@ -1,130 +1,121 @@
-// server/server.js
-// Express.js Backend Server for Importora (MongoDB + Mongoose Ready)
+const dotenv = require("dotenv");
+dotenv.config({ quiet: true });
 
-const express = require("express");
-const mongoose = require("mongoose");
-const cors = require("cors");
-require("dotenv").config();
+const { createApp } = require("./api");
 
-const app = express();
-const PORT = process.env.PORT || 5000;
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/importora";
-
-// Middleware
-app.use(cors());
-app.use(express.json());
-
-// Models
-const Product = require("./models/Product");
-const Order = require("./models/Order");
-
-// Database Connection Helper
-async function connectDB() {
-  if (mongoose.connection.readyState >= 1) return;
-  try {
-    await mongoose.connect(MONGODB_URI);
-    console.log("Connected to MongoDB successfully");
-  } catch (err) {
-    console.error("MongoDB connection error:", err.message);
+function parseOrigins() {
+  const configured = (process.env.FRONTEND_ORIGINS || "http://localhost:3000")
+    .split(",").map((origin) => origin.trim()).filter(Boolean);
+  if (process.env.NODE_ENV === "production" && (!process.env.FRONTEND_ORIGINS || configured.some((origin) => origin.includes("localhost")))) {
+    throw new Error("Set FRONTEND_ORIGINS to the exact production frontend origin(s) before starting in production.");
   }
+  return configured;
 }
 
-// ---------------- API ROUTES ----------------
+async function ensureIndexes(db) {
+  await db.collection("system").updateOne(
+    { _id: "admin-role-mutation-lock" }, { $setOnInsert: { revision: 0 } }, { upsert: true },
+  );
+  try { await db.createCollection("roleAudit"); }
+  catch (error) { if (error?.code !== 48 && error?.codeName !== "NamespaceExists") throw error; }
+  try { await db.createCollection("reviews"); }
+  catch (error) { if (error?.code !== 48 && error?.codeName !== "NamespaceExists") throw error; }
+  const products = db.collection("products");
+  const orders = db.collection("orders");
+  const categories = db.collection("categories");
+  const reviews = db.collection("reviews");
+  const duplicateSlug = await products.aggregate([
+    { $match: { slug: { $type: "string", $ne: "" } } },
+    { $group: { _id: "$slug", count: { $sum: 1 } } },
+    { $match: { count: { $gt: 1 } } },
+    { $limit: 1 },
+  ]).hasNext();
+  if (!duplicateSlug) await products.createIndex({ slug: 1 }, { unique: true });
+  else console.warn("Skipped the unique product slug index because duplicate legacy slugs need manual review.");
+  await products.createIndex({ category: 1 });
+  await products.createIndex({ brand: 1 });
+  const duplicateCategorySlug = await categories.aggregate([
+    { $match: { slug: { $type: "string", $ne: "" } } },
+    { $group: { _id: "$slug", count: { $sum: 1 } } },
+    { $match: { count: { $gt: 1 } } },
+    { $limit: 1 },
+  ]).hasNext();
+  if (!duplicateCategorySlug) await categories.createIndex({ slug: 1 }, { unique: true });
+  else console.warn("Skipped the unique category slug index because duplicate legacy slugs need manual review.");
+  const duplicateReview = await reviews.aggregate([
+    { $group: { _id: { userId: "$userId", productId: "$productId" }, count: { $sum: 1 } } },
+    { $match: { count: { $gt: 1 } } },
+    { $limit: 1 },
+  ]).hasNext();
+  if (!duplicateReview) await reviews.createIndex({ userId: 1, productId: 1 }, { unique: true });
+  else console.warn("Skipped the unique customer review index because duplicate reviews need manual review.");
+  await reviews.createIndex({ productId: 1, status: 1, createdAt: -1 });
 
-// Health check
-app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", service: "Importora API", timestamp: new Date() });
-});
+  const duplicateOrderRef = await orders.aggregate([
+    { $match: { orderReference: { $type: "string", $ne: "" } } },
+    { $group: { _id: "$orderReference", count: { $sum: 1 } } },
+    { $match: { count: { $gt: 1 } } },
+    { $limit: 1 },
+  ]).hasNext();
+  if (!duplicateOrderRef) await orders.createIndex({ orderReference: 1 }, { unique: true });
+  else console.warn("Skipped the unique order reference index because duplicate legacy references need manual review.");
+  await orders.createIndex({ userId: 1, createdAt: -1 });
+  await orders.createIndex({ status: 1 });
+  const duplicateIdempotencyKey = await orders.aggregate([
+    { $match: { idempotencyKey: { $type: "string", $ne: "" } } },
+    { $group: { _id: "$idempotencyKey", count: { $sum: 1 } } },
+    { $match: { count: { $gt: 1 } } },
+    { $limit: 1 },
+  ]).hasNext();
+  if (!duplicateIdempotencyKey) {
+    await orders.createIndex({ idempotencyKey: 1 }, { unique: true, partialFilterExpression: { idempotencyKey: { $type: "string" } } });
+  } else console.warn("Skipped the unique order request key index because duplicate legacy keys need manual review.");
+}
 
-// GET /api/products (Filtering & Sorting)
-app.get("/api/products", async (req, res) => {
+async function startServer() {
+  let mongo;
+  let server;
   try {
-    await connectDB();
-    const { category, brand, search, minPrice, maxPrice, sortBy } = req.query;
-    let query = {};
-
-    if (category) query.category = category;
-    if (brand) query.brand = brand;
-    if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { brand: { $regex: search, $options: "i" } },
-      ];
-    }
-    if (minPrice || maxPrice) {
-      query.price = {};
-      if (minPrice) query.price.$gte = Number(minPrice);
-      if (maxPrice) query.price.$lte = Number(maxPrice);
-    }
-
-    let sortOption = { createdAt: -1 };
-    if (sortBy === "price-low") sortOption = { price: 1 };
-    if (sortBy === "price-high") sortOption = { price: -1 };
-    if (sortBy === "rating") sortOption = { rating: -1 };
-
-    const products = await Product.find(query).sort(sortOption);
-    res.json({ success: true, count: products.length, data: products });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/products/:slug
-app.get("/api/products/:slug", async (req, res) => {
-  try {
-    await connectDB();
-    const product = await Product.findOne({ slug: req.params.slug });
-    if (!product) return res.status(404).json({ success: false, message: "Product not found" });
-    res.json({ success: true, data: product });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/orders
-app.post("/api/orders", async (req, res) => {
-  try {
-    await connectDB();
-    const orderData = req.body;
-    const randomNum = Math.floor(10000 + Math.random() * 90000);
-    const orderReference = `NOV-${randomNum}`;
-
-    const newOrder = new Order({
-      orderReference,
-      ...orderData,
-      status: "Pending",
-      history: [
-        {
-          status: "Order Placed",
-          time: new Date().toLocaleString(),
-          note: "Order placed via website checkout",
-        },
-      ],
+    const frontendOrigins = parseOrigins();
+    mongo = await import("./database.mjs");
+    const { client, db } = await mongo.connectMongo();
+    const [{ createAuth }, { toNodeHandler, fromNodeHeaders }] = await Promise.all([
+      import("./better-auth.config.mjs"),
+      import("better-auth/node"),
+    ]);
+    const auth = createAuth(db, client);
+    await ensureIndexes(db);
+    const app = createApp({
+      db,
+      client,
+      frontendOrigins,
+      authHandler: toNodeHandler(auth),
+      getSession: (req) => auth.api.getSession({ headers: fromNodeHeaders(req.headers) }),
     });
+    const port = Number(process.env.PORT || 5000);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("PORT must be a valid TCP port.");
+    server = await new Promise((resolve, reject) => {
+      const listener = app.listen(port, () => resolve(listener));
+      listener.once("error", reject);
+    });
+    console.log(`Importora API and Better Auth listening on port ${port}; database initialized.`);
 
-    await newOrder.save();
-    res.status(201).json({ success: true, data: newOrder });
-  } catch (err) {
-    res.status(400).json({ success: false, error: err.message });
+    const shutdown = async () => {
+      server.close(async () => {
+        await mongo.closeMongo().catch(() => {});
+        process.exit(0);
+      });
+    };
+    process.once("SIGINT", shutdown);
+    process.once("SIGTERM", shutdown);
+  } catch (error) {
+    console.error(`Importora API startup failed: ${error.message}`);
+    if (server) await new Promise((resolve) => server.close(resolve));
+    if (mongo?.closeMongo) await mongo.closeMongo().catch(() => {});
+    process.exitCode = 1;
   }
-});
-
-// GET /api/orders/track/:orderRef
-app.get("/api/orders/track/:orderRef", async (req, res) => {
-  try {
-    await connectDB();
-    const order = await Order.findOne({ orderReference: req.params.orderRef.toUpperCase() });
-    if (!order) return res.status(404).json({ success: false, message: "Order not found" });
-    res.json({ success: true, data: order });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-if (process.env.NODE_ENV !== "test") {
-  app.listen(PORT, () => {
-    console.log(`Importora Express API listening on port ${PORT}`);
-  });
 }
 
-module.exports = app;
+if (process.env.NODE_ENV !== "test") startServer();
+
+module.exports = { startServer, ensureIndexes, parseOrigins };

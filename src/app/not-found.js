@@ -3,7 +3,7 @@ import { ArrowRight, PackageX, Home, Search } from "lucide-react";
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen bg-[#fcfbf9] flex flex-col items-center justify-center p-6 text-center">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center">
       <div className="w-20 h-20 rounded-3xl bg-amber-50 border border-amber-200 text-amber-800 flex items-center justify-center mb-6 shadow-sm">
         <PackageX className="w-10 h-10" />
       </div>

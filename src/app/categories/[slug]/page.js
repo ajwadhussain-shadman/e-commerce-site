@@ -11,8 +11,7 @@ import SiteFooter from "@/components/common/SiteFooter";
 import Breadcrumbs from "@/components/common/Breadcrumbs";
 import ProductCard from "@/components/products/ProductCard";
 import EmptyState from "@/components/common/EmptyState";
-import { categories } from "@/data/categories";
-import { productService } from "@/services/productService";
+import { categoryService, productService } from "@/services/productService";
 import { ArrowLeft, Check, Sparkles } from "lucide-react";
 
 export default function CategoryPage({ params }) {
@@ -22,26 +21,22 @@ export default function CategoryPage({ params }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedSubcategory, setSelectedSubcategory] = useState("");
   const [sortBy, setSortBy] = useState("popularity");
+  const [category, setCategory] = useState(null);
   const [categoryProducts, setCategoryProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const category = categories.find((c) => c.slug === slug);
-
   useEffect(() => {
-    async function load() {
-      setIsLoading(true);
-      const data = await productService.getAllProducts({ category: slug });
-      setCategoryProducts(data);
-      setIsLoading(false);
-    }
-    if (category) {
-      load();
-    }
-  }, [slug, category]);
-
-  if (!category) {
-    return notFound();
-  }
+    let active = true;
+    Promise.all([categoryService.getCategoryBySlug(slug), productService.getAllProducts({ category: slug })])
+      .then(([foundCategory, products]) => {
+        if (!active) return;
+        setCategory(foundCategory);
+        setCategoryProducts(products);
+      })
+      .catch(() => { if (active) setCategory(null); })
+      .finally(() => { if (active) setIsLoading(false); });
+    return () => { active = false; };
+  }, [slug]);
 
   const filteredProducts = useMemo(() => {
     let list = [...categoryProducts];
@@ -70,8 +65,16 @@ export default function CategoryPage({ params }) {
     return list;
   }, [categoryProducts, selectedSubcategory, sortBy]);
 
+  if (isLoading) {
+    return <main className="min-h-screen flex items-center justify-center text-sm text-stone-500">Loading category...</main>;
+  }
+
+  if (!category) {
+    return notFound();
+  }
+
   return (
-    <div className="min-h-screen flex flex-col bg-[#fcfbf9]">
+    <div className="min-h-screen flex flex-col bg-background">
       <SiteHeader onOpenMobileMenu={() => setMobileMenuOpen(true)} />
       <CategoryNavigation />
       <MobileNavigation isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
@@ -87,14 +90,16 @@ export default function CategoryPage({ params }) {
 
         {/* Category Hero Banner */}
         <div className="relative rounded-3xl overflow-hidden bg-stone-900 text-white min-h-[220px] sm:min-h-[260px] flex flex-col justify-end p-6 sm:p-10 mb-8 shadow-lg">
-          <Image
-            src={category.banner}
-            alt={category.name}
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover opacity-45"
-          />
+          {category.banner && category.banner.trim() ? (
+            <Image
+              src={category.banner}
+              alt={category.name}
+              fill
+              preload
+              sizes="100vw"
+              className="object-cover opacity-45"
+            />
+          ) : null}
           <div className="relative z-10 max-w-2xl">
             <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-300 bg-amber-500/20 px-3 py-1 rounded-full mb-3">
               <Sparkles className="w-3.5 h-3.5" /> Authentic Imported Selection
@@ -123,7 +128,7 @@ export default function CategoryPage({ params }) {
             >
               All {category.name} ({categoryProducts.length})
             </button>
-            {category.subcategories.map((sub, i) => (
+            {(Array.isArray(category.subcategories) ? category.subcategories : []).map((sub, i) => (
               <button
                 key={i}
                 onClick={() => setSelectedSubcategory(selectedSubcategory === sub ? "" : sub)}

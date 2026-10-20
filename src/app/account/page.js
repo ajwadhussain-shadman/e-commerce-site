@@ -2,71 +2,63 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import SiteHeader from "@/components/common/SiteHeader";
 import SiteFooter from "@/components/common/SiteFooter";
 import Breadcrumbs from "@/components/common/Breadcrumbs";
 import { useAuth } from "@/context/AuthContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { orderService } from "@/services/orderService";
-import { 
-  User, 
-  Package, 
-  MapPin, 
-  Heart, 
-  ShieldCheck, 
-  Edit3, 
-  LogOut, 
-  Save, 
-  ArrowRight,
-  Clock
-} from "lucide-react";
+import MobileNavigation from "@/components/common/MobileNavigation";
+import { formatBDT } from "@/lib/currency.mjs";
+import { User, Package, MapPin, Heart, Edit3, LogOut, Save, ArrowRight } from "lucide-react";
 
 export default function AccountPage() {
-  const { user, isAuthenticated, logout, updateProfile } = useAuth();
+  const router = useRouter();
+  const { user, isAuthenticated, isLoaded, logout, updateProfile } = useAuth();
   const { wishlistCount } = useWishlist();
-
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("profile"); // "profile", "orders", "addresses"
   const [orders, setOrders] = useState([]);
   const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState({
+  const [profileChanges, setProfileChanges] = useState(null);
+  const formData = profileChanges || {
     name: user?.name || "",
     email: user?.email || "",
     phone: user?.phone || "",
-    district: user?.district || "Dhaka",
-    area: user?.area || "Banani",
-    address: user?.address || "House 42, Road 11, Block D"
-  });
+    district: user?.district || "",
+    area: user?.area || "",
+    address: user?.address || ""
+  };
 
   useEffect(() => {
-    if (user) {
-      setFormData({
-        name: user.name || "",
-        email: user.email || "",
-        phone: user.phone || "",
-        district: user.district || "Dhaka",
-        area: user.area || "Banani",
-        address: user.address || "House 42, Road 11, Block D"
-      });
-    }
-  }, [user]);
+    if (isLoaded && !isAuthenticated) router.replace("/login");
+  }, [isAuthenticated, isLoaded, router]);
 
   useEffect(() => {
+    if (!isLoaded || !isAuthenticated) return;
     async function loadOrders() {
-      const allOrders = await orderService.getAllOrders();
+      const allOrders = await orderService.getMyOrders();
       setOrders(allOrders);
     }
     loadOrders();
-  }, []);
+  }, [isAuthenticated, isLoaded]);
 
-  const handleSaveProfile = (e) => {
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
-    updateProfile(formData);
-    setIsEditing(false);
+    if (await updateProfile(formData)) {
+      setProfileChanges(null);
+      setIsEditing(false);
+    }
   };
 
+  if (!isLoaded || !isAuthenticated) {
+    return <main className="min-h-screen flex items-center justify-center text-sm text-stone-600">Loading account…</main>;
+  }
+
   return (
-    <div className="min-h-screen flex flex-col bg-[#fcfbf9]">
-      <SiteHeader />
+    <div className="min-h-screen flex flex-col bg-background">
+      <SiteHeader onOpenMobileMenu={() => setIsMobileMenuOpen(true)} />
 
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
         <Breadcrumbs items={[{ label: "My Customer Account" }]} />
@@ -80,11 +72,8 @@ export default function AccountPage() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl sm:text-2xl font-serif font-bold text-stone-950">
-                  {user?.name || "Tanvir Ahmed"}
+                  {user?.name || "Your Account"}
                 </h1>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-200 uppercase">
-                  VIP Club Member
-                </span>
               </div>
               <p className="text-xs text-stone-500 mt-0.5">
                 {user?.email || "tanvir.ahmed@example.com"} • Customer since {user?.joinedDate || "January 2026"}
@@ -93,12 +82,6 @@ export default function AccountPage() {
           </div>
 
           <div className="flex items-center gap-2 self-start sm:self-auto">
-            <Link
-              href="/admin"
-              className="px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-xl text-xs font-bold transition-colors"
-            >
-              Admin Control Panel Demo
-            </Link>
             <button
               onClick={logout}
               className="px-4 py-2 bg-stone-100 hover:bg-rose-50 text-stone-700 hover:text-rose-700 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5"
@@ -188,7 +171,7 @@ export default function AccountPage() {
                       type="text"
                       disabled={!isEditing}
                       value={formData.name}
-                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                      onChange={(e) => setProfileChanges(prev => ({ ...formData, ...prev, name: e.target.value }))}
                       className="w-full p-2.5 bg-stone-50 border border-stone-200 rounded-xl disabled:opacity-75 focus:outline-hidden"
                     />
                   </div>
@@ -197,9 +180,8 @@ export default function AccountPage() {
                     <label className="font-semibold text-stone-600 block mb-1">Email Address</label>
                     <input
                       type="email"
-                      disabled={!isEditing}
+                      disabled
                       value={formData.email}
-                      onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                       className="w-full p-2.5 bg-stone-50 border border-stone-200 rounded-xl disabled:opacity-75 focus:outline-hidden"
                     />
                   </div>
@@ -210,7 +192,7 @@ export default function AccountPage() {
                       type="text"
                       disabled={!isEditing}
                       value={formData.phone}
-                      onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                      onChange={(e) => setProfileChanges(prev => ({ ...formData, ...prev, phone: e.target.value }))}
                       className="w-full p-2.5 bg-stone-50 border border-stone-200 rounded-xl disabled:opacity-75 focus:outline-hidden"
                     />
                   </div>
@@ -221,7 +203,7 @@ export default function AccountPage() {
                       type="text"
                       disabled={!isEditing}
                       value={formData.district}
-                      onChange={(e) => setFormData(prev => ({ ...prev, district: e.target.value }))}
+                      onChange={(e) => setProfileChanges(prev => ({ ...formData, ...prev, district: e.target.value }))}
                       className="w-full p-2.5 bg-stone-50 border border-stone-200 rounded-xl disabled:opacity-75 focus:outline-hidden"
                     />
                   </div>
@@ -297,7 +279,7 @@ export default function AccountPage() {
                               {it.quantity}x {it.name}
                             </span>
                             <span className="font-semibold text-stone-900 font-serif">
-                              ৳{it.price * it.quantity}
+                              {formatBDT(it.price * it.quantity)}
                             </span>
                           </div>
                         ))}
@@ -306,7 +288,7 @@ export default function AccountPage() {
                       <div className="pt-2 border-t border-stone-200 flex justify-between items-baseline text-xs">
                         <span className="text-stone-500">Paid via {ord.paymentMethod}</span>
                         <div className="text-sm font-bold text-stone-950 font-serif">
-                          Total: ৳{ord.total}
+                          Total: {formatBDT(ord.total)}
                         </div>
                       </div>
                     </div>
@@ -348,6 +330,7 @@ export default function AccountPage() {
       </main>
 
       <SiteFooter />
+      <MobileNavigation isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} />
     </div>
   );
 }

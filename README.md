@@ -1,4 +1,4 @@
-# Novella Imports — E-Commerce Platform
+# Importora - E-Commerce Platform
 
 A modern, responsive e-commerce web application for a Bangladeshi business specializing in authentic imported consumables, lifestyle footwear, and global pantry goods.
 
@@ -6,7 +6,7 @@ Inspired by the clean luxury aesthetic of **Novella** and the comprehensive e-co
 
 ---
 
-## 🌟 Key Highlights & Client Demo Features
+## Storefront features
 
 - **Original Brand Identity:** Warm-neutral luxury palette (cream, ivory, charcoal, and warm amber accents) with elegant typography.
 - **7 Imported Product Categories:**
@@ -24,17 +24,17 @@ Inspired by the clean luxury aesthetic of **Novella** and the comprehensive e-co
   - `IMPORT10` — 10% off entire order
   - `WELCOME500` — ৳500 flat discount on orders above ৳2,000
   - `FREESHIP` — Free nationwide delivery
-- **Complete Checkout Flow:** Real-time form validation, Cash on Delivery option, simulated mobile banking (bKash / Nagad), and order confirmation generating tracking numbers (e.g., `NOV-84920`).
+- **Checkout Flow:** Validated cash-on-delivery ordering with server-calculated totals, stock reservation, and tracking references. Online payments are unavailable until a payment provider and server-side verification are implemented.
 - **Interactive Order Tracking (`/track-order`):** 5-step visual tracking timeline from Order Placed to Handed Over to Customer.
-- **Comprehensive Admin Dashboard (`/admin`):**
-  - KPI overview: Gross Sales, Total Orders, Active SKUs, Pending Shipments
-  - Weekly revenue visual analytics chart
+- **Admin Dashboard (`/admin`):**
+  - Database-derived order value, order count, active SKUs, and pending fulfillment counts
+  - Dated revenue reporting is not yet available; the UI does not display synthetic sales figures.
   - Product management with search, category filtering, delete action, and SKU addition
   - Real-time order status workflow changer (Pending → Confirmed → Processing → Shipped → Delivered)
   - Categories & Brands directories
-  - Coupon & Banner management
-  - Store policy settings
-- **Backend Ready:** Clean service abstraction layer (`src/services/productService.js` and `src/services/orderService.js`) plus an Express.js and Mongoose schema setup ready in `server/`.
+  - Fixed checkout coupon rules and storefront promotional banners
+  - Store settings panel (values are not persisted)
+- **Backend:** Express 5, Better Auth, and native MongoDB driver APIs. See [`server/README.md`](./server/README.md) for environment setup, catalog import, administrator provisioning, and verification commands.
 
 ---
 
@@ -68,12 +68,12 @@ npm start
 | `/products/[slug]` | Product details with image gallery, specs, delivery rates, & reviews |
 | `/search` | Live product search with suggestions and filter results |
 | `/cart` | Shopping cart with live quantity controls and coupon engine |
-| `/checkout` | Delivery address form, shipping method, and payment choice |
+| `/checkout` | Delivery address form, shipping method, and cash-on-delivery checkout |
 | `/order-success` | Order confirmation receipt with tracking shortcuts |
-| `/track-order` | Order timeline tracker (Sample refs: `NOV-84920`, `NOV-84921`) |
+| `/track-order` | Order timeline tracker (order reference and checkout phone required) |
 | `/wishlist` | Saved products with 1-click move to cart |
 | `/account` | Customer profile, addresses, and order history |
-| `/login` / `/register` | Authentication with 1-click demo logins |
+| `/login` / `/register` | Better Auth email/password authentication |
 | `/admin` | Complete admin control panel & analytics overview |
 | `/admin/products` | Inventory table with add/edit/delete SKU actions |
 | `/admin/orders` | Order management and status updater |

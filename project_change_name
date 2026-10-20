@@ -1,0 +1,19 @@
+# Project Changes Log
+
+## Banner Management Feature & Route Fix (2026-10-19)
+
+### Changes Made:
+1. **Simplified Admin Banner Form (`src/app/admin/banners/page.js`)**:
+   - Removed subtitle, destination link, and display-order input fields.
+   - Streamlined the form to accept only **Banner Name** (`title`) and **Banner Image** (`image`).
+   - Added support for single and multiple image selection/upload in a single operation with file validation (JPG, PNG, WebP, AVIF up to 10 MB).
+   - Automatically generated numbered banner names (e.g., `Summer Sale 1`, `Summer Sale 2`, etc.) when a single common title is provided for multiple uploaded images.
+   - Provided instant previews with remove controls for selected files before upload.
+
+2. **Automatic Slideshow Ordering & Backend Integration (`server/api.js`)**:
+   - Fixed backend API route handling and validated data structures for banners.
+   - Assigned automatic ordering (`order`) for newly created banners.
+   - Preserved active/inactive toggling, deletion with Cloudinary asset cleanup, and seamless homepage slideshow integration (`src/components/home/BannerSlideshow.js`).
+
+3. **Tracking File**:
+   - Created `project_change_name` to document changes made per prompt.

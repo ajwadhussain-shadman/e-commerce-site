@@ -1,116 +1,32 @@
 "use client";
 
-import { Users, Mail, Phone, MapPin } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Mail, Phone, MapPin, Users } from "lucide-react";
+import { orderService } from "@/services/orderService";
+import { formatBDT } from "@/lib/currency.mjs";
 
 export default function AdminCustomersPage() {
-  const sampleCustomers = [
-    {
-      id: "CUST-01",
-      name: "Tanvir Ahmed",
-      email: "tanvir.ahmed@example.com",
-      phone: "+880 1712 345678",
-      district: "Dhaka",
-      area: "Banani",
-      totalOrders: 3,
-      totalSpend: 8432,
-      tier: "VIP Gold"
-    },
-    {
-      id: "CUST-02",
-      name: "Nusrat Jahan",
-      email: "nusrat.jahan@example.com",
-      phone: "+880 1819 876543",
-      district: "Dhaka",
-      area: "Gulshan-2",
-      totalOrders: 2,
-      totalSpend: 6270,
-      tier: "Silver"
-    },
-    {
-      id: "CUST-03",
-      name: "Rahim Chowdhury",
-      email: "rahim.c@example.com",
-      phone: "+880 1911 223344",
-      district: "Dhaka",
-      area: "Uttara",
-      totalOrders: 1,
-      totalSpend: 4080,
-      tier: "Bronze"
-    },
-    {
-      id: "CUST-04",
-      name: "Farhana Karim",
-      email: "farhana.k@example.com",
-      phone: "+880 1622 998877",
-      district: "Chittagong",
-      area: "Nasirabad",
-      totalOrders: 1,
-      totalSpend: 12600,
-      tier: "VIP Gold"
-    }
-  ];
+  const [customers, setCustomers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    orderService.getCustomers()
+      .then((data) => { if (active) setCustomers(data); })
+      .catch((loadError) => { if (active) setError(loadError.message || "Could not load customer accounts."); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="pb-4 border-b border-stone-200">
-        <h1 className="text-2xl font-serif font-bold text-stone-950">
-          Customer Directory & Loyalty
-        </h1>
-        <p className="text-xs text-stone-500 mt-0.5">
-          Registered imported goods clientele and purchase histories.
-        </p>
+      <div className="border-b border-stone-200 pb-4"><h1 className="text-2xl font-serif font-bold text-stone-950">Customer Accounts</h1><p className="mt-0.5 text-xs text-stone-500">Registered accounts and delivered order totals from the database.</p></div>
+      {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}
+      <div className="overflow-hidden rounded-3xl border border-stone-200/90 bg-white shadow-xs">
+        {loading ? <p role="status" className="p-8 text-center text-sm text-stone-500">Loading customers...</p> : customers.length === 0 ? <div className="p-10 text-center text-sm text-stone-500"><Users className="mx-auto mb-2 h-6 w-6" />No customer accounts yet.</div> : <div className="overflow-x-auto"><table className="w-full text-left text-xs"><thead><tr className="border-b border-stone-200 bg-stone-50 font-bold uppercase tracking-wider text-stone-500"><th className="px-4 py-3">Customer</th><th className="px-4 py-3">Contact</th><th className="px-4 py-3">Location</th><th className="px-4 py-3">Orders</th><th className="px-4 py-3">Delivered total</th></tr></thead><tbody className="divide-y divide-stone-100">{customers.map((customer) => <tr key={customer.id}><td className="px-4 py-3.5 font-semibold text-stone-900">{customer.name}</td><td className="px-4 py-3.5 text-stone-600"><span className="flex items-center gap-1"><Mail className="h-3 w-3" />{customer.email}</span>{customer.phone && <span className="mt-1 flex items-center gap-1 font-mono"><Phone className="h-3 w-3" />{customer.phone}</span>}</td><td className="px-4 py-3.5 text-stone-600">{(customer.area || customer.district) && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{[customer.area, customer.district].filter(Boolean).join(", ")}</span>}</td><td className="px-4 py-3.5 font-semibold">{customer.totalOrders}</td><td className="px-4 py-3.5 font-semibold">{formatBDT(customer.totalSpend || 0)}</td></tr>)}</tbody></table></div>}
       </div>
-
-      <div className="bg-white rounded-3xl border border-stone-200/90 shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="bg-stone-50 border-b border-stone-200 text-stone-500 font-bold uppercase tracking-wider">
-                <th className="py-3 px-4">Customer</th>
-                <th className="py-3 px-4">Contact</th>
-                <th className="py-3 px-4">Location</th>
-                <th className="py-3 px-4">Orders</th>
-                <th className="py-3 px-4">Total Spent (BDT)</th>
-                <th className="py-3 px-4 text-right">VIP Tier</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-100">
-              {sampleCustomers.map((cust) => (
-                <tr key={cust.id} className="hover:bg-stone-50/70 transition-colors">
-                  <td className="py-3.5 px-4">
-                    <span className="font-semibold text-stone-900 block">{cust.name}</span>
-                    <span className="text-[10px] text-stone-400 font-mono">{cust.id}</span>
-                  </td>
-                  <td className="py-3.5 px-4 text-stone-600">
-                    <div className="flex items-center gap-1">
-                      <Mail className="w-3 h-3 text-stone-400" />
-                      <span>{cust.email}</span>
-                    </div>
-                    <div className="flex items-center gap-1 mt-0.5 text-[11px] font-mono text-stone-500">
-                      <Phone className="w-3 h-3 text-stone-400" />
-                      <span>{cust.phone}</span>
-                    </div>
-                  </td>
-                  <td className="py-3.5 px-4 text-stone-600">
-                    {cust.area}, {cust.district}
-                  </td>
-                  <td className="py-3.5 px-4 font-bold text-stone-900">
-                    {cust.totalOrders}
-                  </td>
-                  <td className="py-3.5 px-4 font-bold text-stone-950 font-serif">
-                    ৳{cust.totalSpend.toLocaleString()}
-                  </td>
-                  <td className="py-3.5 px-4 text-right">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-200">
-                      {cust.tier}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <p className="text-[11px] text-stone-500">Customer details are available to authenticated administrators only.</p>
     </div>
   );
 }

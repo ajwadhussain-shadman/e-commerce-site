@@ -19,7 +19,7 @@ export default function TrustBadges() {
     {
       icon: RotateCcw,
       title: "7-Day Return Policy",
-      desc: "Hassle-free demo exchange policy if an item arrives damaged or compromised during transit.",
+      desc: "Hassle-free return and exchange policy if an item arrives damaged or compromised during transit.",
       color: "text-blue-800 bg-blue-50"
     },
     {
@@ -31,7 +31,7 @@ export default function TrustBadges() {
   ];
 
   return (
-    <section className="py-12 bg-white border-b border-stone-200/80">
+    <section className="py-12 bg-surface border-b border-border/80">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {perks.map((perk, i) => {
@@ -39,14 +39,14 @@ export default function TrustBadges() {
             return (
               <div
                 key={i}
-                className="flex items-start gap-4 p-5 rounded-2xl bg-stone-50/70 border border-stone-200/60 hover:border-amber-700/20 transition-all duration-300"
+                className="flex items-start gap-4 p-5 rounded-2xl bg-surface-muted/70 border border-border/60 hover:border-amber-700/20 transition-all duration-300"
               >
                 <div className={`p-3 rounded-xl ${perk.color} shrink-0`}>
                   <Icon className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-stone-900">{perk.title}</h3>
-                  <p className="text-xs text-stone-600 mt-1 leading-relaxed">{perk.desc}</p>
+                  <h3 className="text-sm font-bold text-foreground">{perk.title}</h3>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{perk.desc}</p>
                 </div>
               </div>
             );

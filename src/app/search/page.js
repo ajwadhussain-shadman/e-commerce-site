@@ -10,7 +10,7 @@ import SiteFooter from "@/components/common/SiteFooter";
 import Breadcrumbs from "@/components/common/Breadcrumbs";
 import ProductCard from "@/components/products/ProductCard";
 import EmptyState from "@/components/common/EmptyState";
-import { products } from "@/data/products";
+import { productService } from "@/services/productService";
 import { Search as SearchIcon, Sparkles } from "lucide-react";
 
 function SearchContent() {
@@ -18,19 +18,24 @@ function SearchContent() {
   const query = searchParams.get("q") || "";
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sortBy, setSortBy] = useState("relevance");
+  const [products, setProducts] = useState([]);
+  const [loadError, setLoadError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    const request = query.trim() ? productService.getAllProducts({ search: query }) : Promise.resolve([]);
+    request
+      .then((items) => { if (active) { setProducts(items); setLoadError(""); } })
+      .catch((error) => { if (active) { setProducts([]); setLoadError(error.message || "Could not load search results."); } });
+    return () => { active = false; };
+  }, [query]);
 
   const popularSearches = ["KitKat", "Buldak Ramen", "Horlicks", "Oats", "Olaplex", "Sneakers", "Lindt"];
 
   const searchResults = useMemo(() => {
     if (!query.trim()) return [];
     const q = query.toLowerCase().trim();
-    let matches = products.filter(p =>
-      p.name.toLowerCase().includes(q) ||
-      p.brand.toLowerCase().includes(q) ||
-      p.category.toLowerCase().includes(q) ||
-      p.subcategory.toLowerCase().includes(q) ||
-      p.shortDescription.toLowerCase().includes(q)
-    );
+    let matches = products.filter((product) => [product.name, product.brand, product.category, product.subcategory, product.shortDescription].some((value) => String(value || "").toLowerCase().includes(q)));
 
     switch (sortBy) {
       case "price-low":
@@ -48,10 +53,10 @@ function SearchContent() {
         break;
     }
     return matches;
-  }, [query, sortBy]);
+  }, [query, sortBy, products]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#fcfbf9]">
+    <div className="min-h-screen flex flex-col bg-background">
       <SiteHeader onOpenMobileMenu={() => setMobileMenuOpen(true)} />
       <CategoryNavigation />
       <MobileNavigation isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
@@ -60,27 +65,27 @@ function SearchContent() {
         <Breadcrumbs items={[{ label: "Search Results", href: "/search" }, { label: query || "All" }]} />
 
         {/* Search header */}
-        <div className="py-6 border-b border-stone-200 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div className="py-6 border-b border-border flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
             <span className="text-xs uppercase font-bold tracking-widest text-amber-800 flex items-center gap-1.5">
               <SearchIcon className="w-3.5 h-3.5" /> Product Search
             </span>
-            <h1 className="text-2xl sm:text-3xl font-serif font-bold text-stone-950 mt-1">
+            <h1 className="text-2xl sm:text-3xl font-serif font-bold text-foreground mt-1">
               Search Results for: &ldquo;<span className="text-amber-900">{query}</span>&rdquo;
             </h1>
-            <p className="text-xs text-stone-500 mt-1">
-              Found {searchResults.length} matching imported items
+            <p className="text-xs text-muted-foreground mt-1" role={loadError ? "alert" : undefined}>
+              {loadError || `Found ${searchResults.length} matching imported items`}
             </p>
           </div>
 
           {searchResults.length > 0 && (
             <div className="flex items-center gap-2">
-              <label htmlFor="searchSort" className="text-xs text-stone-500">Sort:</label>
+              <label htmlFor="searchSort" className="text-xs text-muted-foreground">Sort:</label>
               <select
                 id="searchSort"
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="px-3 py-1.5 bg-white text-stone-900 text-xs font-semibold rounded-xl border border-stone-300 shadow-xs focus:outline-hidden"
+                className="px-3 py-1.5 bg-surface text-foreground text-xs font-semibold rounded-xl border border-border shadow-xs focus:outline-hidden"
               >
                 <option value="relevance">Most Relevant</option>
                 <option value="price-low">Price: Low to High</option>
@@ -93,12 +98,12 @@ function SearchContent() {
 
         {/* Popular search pills */}
         <div className="py-4 flex flex-wrap items-center gap-2 text-xs">
-          <span className="text-stone-500 font-medium">Popular searches:</span>
+          <span className="text-muted-foreground font-medium">Popular searches:</span>
           {popularSearches.map((term, i) => (
             <Link
               key={i}
               href={`/search?q=${encodeURIComponent(term)}`}
-              className="px-3 py-1 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-full font-medium transition-colors"
+              className="px-3 py-1 bg-surface-muted hover:bg-surface-warm text-foreground rounded-full font-medium transition-colors"
             >
               {term}
             </Link>
@@ -132,7 +137,7 @@ function SearchContent() {
 
 export default function SearchPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#fcfbf9] p-12 text-center text-sm text-stone-500">Searching imported catalog...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-background p-12 text-center text-sm text-muted-foreground">Searching imported catalog...</div>}>
       <SearchContent />
     </Suspense>
   );

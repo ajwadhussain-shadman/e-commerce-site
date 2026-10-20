@@ -1,40 +1,23 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import SiteHeader from "@/components/common/SiteHeader";
 import SiteFooter from "@/components/common/SiteFooter";
 import Breadcrumbs from "@/components/common/Breadcrumbs";
 import { orderService } from "@/services/orderService";
-import { 
-  Package, 
-  Search, 
-  CheckCircle2, 
-  Clock, 
-  Truck, 
-  MapPin, 
-  AlertCircle,
-  HelpCircle
-} from "lucide-react";
+import { formatBDT } from "@/lib/currency.mjs";
+import { Package, Search, CheckCircle2, Clock, AlertCircle } from "lucide-react";
 
 function TrackOrderContent() {
   const searchParams = useSearchParams();
   const initialOrderId = searchParams.get("id") || "";
 
-  const [orderIdInput, setOrderIdInput] = useState(initialOrderId || "NOV-84920");
+  const [orderIdInput, setOrderIdInput] = useState(initialOrderId);
   const [phoneInput, setPhoneInput] = useState("");
   const [trackedOrder, setTrackedOrder] = useState(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
-
-  useEffect(() => {
-    if (initialOrderId) {
-      handleTrack(initialOrderId);
-    } else {
-      // Auto-preview sample demo order on load for client demo
-      handleTrack("NOV-84920");
-    }
-  }, [initialOrderId]);
 
   const handleTrack = async (idToSearch) => {
     const id = idToSearch || orderIdInput;
@@ -73,7 +56,7 @@ function TrackOrderContent() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#fcfbf9]">
+    <div className="min-h-screen flex flex-col bg-background">
       <SiteHeader />
 
       <main className="flex-1 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
@@ -118,10 +101,11 @@ function TrackOrderContent() {
 
               <div>
                 <label className="font-semibold text-stone-700 block mb-1">
-                  Phone Number (Optional verification)
+                  Phone Number (Required verification)
                 </label>
                 <input
                   type="text"
+                  required
                   placeholder="e.g. 01712345678"
                   value={phoneInput}
                   onChange={(e) => setPhoneInput(e.target.value)}
@@ -140,23 +124,6 @@ function TrackOrderContent() {
             </button>
           </form>
 
-          {/* Preset Demo Order Links for Instant Client Testing */}
-          <div className="mt-4 pt-3 border-t border-stone-100 flex flex-wrap items-center gap-2 text-[11px] text-stone-500">
-            <span>Demo sample references:</span>
-            {["NOV-84920", "NOV-84921", "NOV-84922", "NOV-84923"].map((ref) => (
-              <button
-                key={ref}
-                type="button"
-                onClick={() => {
-                  setOrderIdInput(ref);
-                  handleTrack(ref);
-                }}
-                className="px-2 py-0.5 bg-stone-100 hover:bg-amber-100 text-stone-800 rounded font-mono font-medium transition-colors"
-              >
-                {ref}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Tracking Timeline Output */}
@@ -179,7 +146,7 @@ function TrackOrderContent() {
               <div className="text-right self-start sm:self-auto">
                 <span className="text-xs text-stone-500">Total BDT</span>
                 <div className="text-xl font-bold text-stone-950 font-serif">
-                  ৳{trackedOrder.total}
+                  {formatBDT(trackedOrder.total)}
                 </div>
               </div>
             </div>
@@ -236,7 +203,7 @@ function TrackOrderContent() {
 
             {/* Disclaimer */}
             <div className="p-4 bg-stone-50 rounded-2xl border border-stone-200 text-xs text-stone-500">
-              <span className="font-semibold text-stone-700">Client Demo Note:</span> Statuses reflect local mock order progression. To advance this order to Shipped or Delivered, update it in the <a href="/admin/orders" className="underline font-bold text-amber-900">Admin Orders Tab</a>.
+              Order details are shown only after verifying the phone number used at checkout.
             </div>
 
           </div>
@@ -246,7 +213,7 @@ function TrackOrderContent() {
               <AlertCircle className="w-10 h-10 text-stone-400 mx-auto mb-2" />
               <h3 className="font-serif font-bold text-base text-stone-900">Order Not Found</h3>
               <p className="text-xs text-stone-500 mt-1">
-                We couldn&apos;t find an order matching reference &ldquo;{orderIdInput}&rdquo;. Try one of the demo references: NOV-84920, NOV-84921, NOV-84922, NOV-84923.
+                We couldn&apos;t find an order matching that reference and phone number. Check both details and try again.
               </p>
             </div>
           )
@@ -261,7 +228,7 @@ function TrackOrderContent() {
 
 export default function TrackOrderPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#fcfbf9] p-12 text-center text-sm text-stone-500">Loading order tracker...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-background p-12 text-center text-sm text-stone-500">Loading order tracker...</div>}>
       <TrackOrderContent />
     </Suspense>
   );

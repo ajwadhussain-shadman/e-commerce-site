@@ -1,21 +1,13 @@
 "use client";
 
-import { useState } from "react";
 import SiteHeader from "@/components/common/SiteHeader";
 import SiteFooter from "@/components/common/SiteFooter";
 import Breadcrumbs from "@/components/common/Breadcrumbs";
-import { Phone, Mail, MapPin, Clock, Send, CheckCircle2 } from "lucide-react";
+import { Phone, Mail, MapPin, Clock, Send } from "lucide-react";
 
 export default function ContactPage() {
-  const [submitted, setSubmitted] = useState(false);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    setSubmitted(true);
-  };
-
   return (
-    <div className="min-h-screen flex flex-col bg-[#fcfbf9]">
+    <div className="min-h-screen flex flex-col bg-background">
       <SiteHeader />
 
       <main className="flex-1 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
@@ -45,7 +37,7 @@ export default function ContactPage() {
                 <MapPin className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
                 <div>
                   <strong className="block text-stone-900">Showroom & Fulfillment Hub:</strong>
-                  Gulshan-2, Dhaka-1212, Bangladesh
+                  Business address not configured
                 </div>
               </div>
 
@@ -53,7 +45,7 @@ export default function ContactPage() {
                 <Phone className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
                 <div>
                   <strong className="block text-stone-900">Customer Helpline:</strong>
-                  +880 1700-000000 (Hotline & WhatsApp)
+                  Support phone not configured
                 </div>
               </div>
 
@@ -61,7 +53,7 @@ export default function ContactPage() {
                 <Mail className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
                 <div>
                   <strong className="block text-stone-900">Email Address:</strong>
-                  support@importora-demo.com
+                  Support email not configured
                 </div>
               </div>
 
@@ -75,7 +67,7 @@ export default function ContactPage() {
             </div>
 
             <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 text-xs text-amber-900">
-              <strong>Demo Disclaimer:</strong> Address and telephone entries are customizable placeholders for the client demo presentation.
+              Configure verified store contact details before accepting customer inquiries.
             </div>
           </div>
 
@@ -85,22 +77,9 @@ export default function ContactPage() {
               Send Us a Message
             </h3>
 
-            {submitted ? (
-              <div className="p-6 bg-emerald-50 rounded-2xl border border-emerald-200 text-center space-y-2">
-                <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
-                <h4 className="font-bold text-emerald-950 text-sm">Message Received (Demo)!</h4>
-                <p className="text-xs text-emerald-800">
-                  Thank you for reaching out. In production, our support team responds within 2-4 hours.
-                </p>
-                <button
-                  onClick={() => setSubmitted(false)}
-                  className="mt-3 px-4 py-2 bg-emerald-800 text-white rounded-xl text-xs font-semibold"
-                >
-                  Send Another Message
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+            <>
+              <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">The inquiry form is not connected to a support inbox. No message can be sent from this form yet.</p>
+              <form onSubmit={(e) => e.preventDefault()} className="space-y-4 text-xs">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="font-semibold text-stone-700 block mb-1">Your Name</label>
@@ -153,13 +132,14 @@ export default function ContactPage() {
                 </div>
 
                 <button
-                  type="submit"
-                  className="px-6 py-3 bg-stone-900 hover:bg-stone-800 text-white rounded-xl font-bold flex items-center gap-2 transition-colors"
+                  type="button"
+                  disabled
+                  className="px-6 py-3 bg-stone-300 text-stone-600 rounded-xl font-bold flex items-center gap-2 cursor-not-allowed"
                 >
-                  <Send className="w-3.5 h-3.5" /> Submit Inquiry
+                  <Send className="w-3.5 h-3.5" /> Inquiry service unavailable
                 </button>
               </form>
-            )}
+            </>
           </div>
         </div>
       </main>

@@ -1,101 +1,98 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext } from "react";
+import { authClient } from "../../lib/auth-client";
 import { useToast } from "./ToastContext";
 
 const AuthContext = createContext(null);
-const AUTH_STORAGE_KEY = "novella_demo_user";
 
-const DEMO_USER = {
-  id: "usr-demo-01",
-  name: "Tanvir Ahmed",
-  email: "tanvir.ahmed@example.com",
-  phone: "+880 1712 345678",
-  district: "Dhaka",
-  area: "Banani",
-  address: "House 42, Road 11, Block D",
-  joinedDate: "January 2026",
-  role: "customer"
-};
+function assertAuthSuccess(result, fallbackMessage) {
+  if (result.error) {
+    throw new Error(result.error.message || fallbackMessage);
+  }
+
+  return result.data;
+}
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [isLoaded, setIsLoaded] = useState(false);
   const { addToast } = useToast();
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(AUTH_STORAGE_KEY);
-      if (stored) {
-        setUser(JSON.parse(stored));
-      } else {
-        // Default to demo user for client presentation
-        setUser(DEMO_USER);
-        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(DEMO_USER));
+  const { data: session, isPending, error: sessionError, refetch } = authClient.useSession();
+  const user = session?.user
+    ? {
+        ...session.user,
+        phone: session.user.phone || "",
+        district: session.user.district || "",
+        area: session.user.area || "",
+        address: session.user.address || "",
       }
-    } catch (e) {
-      console.warn("Could not load user from storage", e);
-    } finally {
-      setIsLoaded(true);
-    }
-  }, []);
+    : null;
 
   const login = async (email, password) => {
-    // Simulated authentication for demo
-    const loggedInUser = {
-      ...DEMO_USER,
-      email: email || DEMO_USER.email,
-      name: email.split("@")[0].replace(".", " ").replace(/(^\w|\s\w)/g, m => m.toUpperCase())
-    };
-    setUser(loggedInUser);
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(loggedInUser));
-    addToast(`Welcome back, ${loggedInUser.name}!`, "success");
+    const data = assertAuthSuccess(
+      await authClient.signIn.email({ email, password }),
+      "Sign in failed. Please check your details and try again."
+    );
+    await refetch();
+    addToast(`Welcome back, ${data?.user?.name || email}!`, "success");
     return true;
   };
 
-  const register = async (name, email, phone) => {
-    const newUser = {
-      id: `usr-${Date.now()}`,
-      name,
-      email,
-      phone,
-      district: "Dhaka",
-      area: "Gulshan",
-      address: "Demo Address",
-      joinedDate: "Just now",
-      role: "customer"
-    };
-    setUser(newUser);
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(newUser));
-    addToast(`Account created successfully! Welcome, ${name}`, "success");
+  const register = async (name, email, phone, password) => {
+    const data = assertAuthSuccess(
+      await authClient.signUp.email({ name, email, phone, password }),
+      "Registration failed. Please review your details and try again."
+    );
+    await refetch();
+    addToast(`Account created successfully! Welcome, ${data?.user?.name || name}.`, "success");
     return true;
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-    addToast("Logged out successfully", "info");
+  const logout = async () => {
+    try {
+      assertAuthSuccess(await authClient.signOut(), "Sign out failed. Please try again.");
+      await refetch();
+      addToast("Logged out successfully", "info");
+      return true;
+    } catch (error) {
+      addToast(error.message || "Sign out failed. Please try again.", "error");
+      return false;
+    }
   };
 
-  const updateProfile = (data) => {
-    setUser(prev => {
-      const updated = { ...prev, ...data };
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updated));
-      return updated;
-    });
-    addToast("Profile updated successfully", "success");
+  const updateProfile = async (data) => {
+    try {
+      assertAuthSuccess(
+        await authClient.updateUser({
+          name: data.name,
+          phone: data.phone,
+          district: data.district,
+          area: data.area,
+          address: data.address,
+        }),
+        "Profile update failed. Please try again."
+      );
+      await refetch();
+      addToast("Profile updated successfully", "success");
+      return true;
+    } catch (error) {
+      addToast(error.message || "Profile update failed. Please try again.", "error");
+      return false;
+    }
   };
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        isAuthenticated: !!user,
+        session,
+        sessionError,
+        isAuthenticated: Boolean(session?.user),
         login,
         register,
         logout,
         updateProfile,
-        isLoaded
+        refreshSession: refetch,
+        isLoaded: !isPending,
       }}
     >
       {children}

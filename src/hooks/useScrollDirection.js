@@ -33,12 +33,16 @@ export function useScrollDirection({
     if (typeof window === "undefined") return;
 
     // Respect reduced-motion: keep the header stable (never collapse).
-    const prefersReduced =
-      window.matchMedia &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const motionPreference = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    const prefersReduced = motionPreference?.matches;
+    const handleMotionPreferenceChange = (event) => {
+      if (event.matches) setHidden(false);
+    };
+    motionPreference?.addEventListener("change", handleMotionPreferenceChange);
+
     if (!enabled || prefersReduced) {
-      setHidden(false);
-      return;
+      queueMicrotask(() => setHidden(false));
+      return () => motionPreference?.removeEventListener("change", handleMotionPreferenceChange);
     }
 
     lastY.current = window.scrollY;
@@ -73,8 +77,11 @@ export function useScrollDirection({
     // Run once so initial state is accurate on reload mid-page.
     update();
 
-    return () => window.removeEventListener("scroll", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      motionPreference?.removeEventListener("change", handleMotionPreferenceChange);
+    };
   }, [threshold, topOffset, hideOffset, enabled]);
 
-  return { hidden, atTop };
+  return { hidden: enabled && hidden, atTop };
 }

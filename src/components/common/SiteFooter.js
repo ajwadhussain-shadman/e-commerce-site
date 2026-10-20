@@ -1,35 +1,55 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { categories } from "@/data/categories";
 import { Phone, Mail, MapPin } from "lucide-react";
+import { useLanguage } from "@/context/LanguageContext";
+import { useAuth } from "@/context/AuthContext";
+import { hasAdminRole } from "@/lib/auth-access.mjs";
 
 export default function SiteFooter() {
+  const { t } = useLanguage();
+  const { user } = useAuth();
+
+  // Category names come from the data file in English; fall back to the
+  // dictionary entry for the active language, exactly like the navbar does.
+  const catLabel = (cat) => {
+    const value = t(`categories.${cat.slug}`);
+    return value === `categories.${cat.slug}` ? cat.name : value;
+  };
+
   return (
-    <footer className="bg-stone-900 text-stone-300 border-t border-stone-800 text-sm">
+    <footer className="bg-stone-900 dark:bg-surface text-stone-300 border-t border-stone-800 dark:border-border text-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
 
           <div className="col-span-1 md:col-span-2 lg:col-span-1">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-9 h-9 rounded-xl bg-orange-500 flex items-center justify-center">
-                <span className="text-stone-900 font-bold text-lg">I</span>
-              </div>
-              <span className="font-bold text-lg text-white">IMPORTORA</span>
+            <div className="mb-4">
+              {/* Lockup already contains the wordmark — no duplicate text logo. */}
+              <span className="logo-plate inline-flex items-center justify-center rounded-xl bg-white p-1 shadow-xs ring-1 ring-black/5">
+                <Image
+                  src="/img/logo2.png?v=20261015"
+                  alt="Importora"
+                  width={48}
+                  height={48}
+                  className="h-12 w-12 object-contain"
+                />
+              </span>
             </div>
 
             <p className="text-xs text-stone-400 mb-4 leading-relaxed">
-              আসল বিশ্বের ব্র্যান্ড আপনার দোরগোড়ায়। আমরা আন্তর্জাতিক প্যান্ট্রি ফেভারিট, পণ্য সরাসরি বাংলাদেশে দ্রুত ডেলিভারি দিয়ে পৌঁছে দিই।
+              {t("footer.brandDesc")}
             </p>
 
             <div className="space-y-2 text-xs text-stone-400">
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4 shrink-0" />
-                <span>সিলেট, বাংলাদেশ</span>
+                <span>{t("footer.address")}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Phone className="w-4 h-4 shrink-0" />
-                <span>+880 1700-000000 (সকাল ১০টা - রাত ১০টা)</span>
+                <span>{t("footer.phone")}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Mail className="w-4 h-4 shrink-0" />
@@ -39,88 +59,97 @@ export default function SiteFooter() {
           </div>
 
           <div>
-            <h4 className="text-xs font-semibold text-white uppercase tracking-wider mb-4">ক্যাটাগরি</h4>
+            <h4 className="text-xs font-semibold text-white uppercase tracking-wider mb-4">
+              {t("footer.categoriesTitle")}
+            </h4>
             <ul className="space-y-2 text-xs">
               {categories.slice(0, 5).map((cat) => (
                 <li key={cat.id}>
                   <Link href={`/categories/${cat.slug}`} className="hover:text-white hover:underline transition-colors">
-                    {cat.name}
+                    {catLabel(cat)}
                   </Link>
                 </li>
               ))}
               <li>
                 <Link href="/products" className="text-orange-500 hover:text-orange-400 hover:underline inline-flex items-center gap-1 font-semibold">
-                  সকল পণ্য দেখুন
+                  {t("footer.viewAllProducts")}
                 </Link>
               </li>
             </ul>
           </div>
 
           <div>
-            <h4 className="text-xs font-semibold text-white uppercase tracking-wider mb-4">কাস্টমার সেবা</h4>
+            <h4 className="text-xs font-semibold text-white uppercase tracking-wider mb-4">
+              {t("footer.customerCare")}
+            </h4>
             <ul className="space-y-2 text-xs">
               <li>
                 <Link href="/track-order" className="hover:text-white hover:underline transition-colors">
-                  অর্ডার ট্র্যাক করুন
+                  {t("footer.trackYourOrder")}
                 </Link>
               </li>
               <li>
                 <Link href="/shipping" className="hover:text-white hover:underline transition-colors">
-                  শিপিং ও ডেলিভারি তথ্য
+                  {t("footer.shippingDelivery")}
                 </Link>
               </li>
               <li>
                 <Link href="/returns" className="hover:text-white hover:underline transition-colors">
-                  রিটার্ন ও রিফান্ড পলিসি
+                  {t("footer.returnRefund")}
                 </Link>
               </li>
               <li>
                 <Link href="/faq" className="hover:text-white hover:underline transition-colors">
-                  সচরাচর জিজ্ঞাসিত প্রশ্ন
+                  {t("footer.faq")}
                 </Link>
               </li>
               <li>
                 <Link href="/contact" className="hover:text-white hover:underline transition-colors">
-                  কাস্টমার কেয়ারে যোগাযোগ
+                  {t("footer.contactCare")}
                 </Link>
               </li>
             </ul>
           </div>
 
           <div>
-            <h4 className="text-xs font-semibold text-white uppercase tracking-wider mb-4">এসএসএল ও এফিগিউ</h4>
+            <h4 className="text-xs font-semibold text-white uppercase tracking-wider mb-4">
+              {t("footer.companyLegal")}
+            </h4>
             <ul className="space-y-2 text-xs">
               <li>
                 <Link href="/about" className="hover:text-white hover:underline transition-colors">
-                  ইম্পোর্টোরা সম্পর্কে
+                  {t("footer.aboutNovella")}
+                </Link>
+              </li>
+              {/* These pointed at /policy/privacy and /policy/terms, neither of
+                  which is a route in this app — both 404'd. The pages live at
+                  /privacy and /terms. */}
+              <li>
+                <Link href="/privacy" className="hover:text-white hover:underline transition-colors">
+                  {t("footer.privacyPolicy")}
                 </Link>
               </li>
               <li>
-                <Link href="/policy/privacy" className="hover:text-white hover:underline transition-colors">
-                  গোপনীয়তা নীতি
+                <Link href="/terms" className="hover:text-white hover:underline transition-colors">
+                  {t("footer.termsConditions")}
                 </Link>
               </li>
-              <li>
-                <Link href="/policy/terms" className="hover:text-white hover:underline transition-colors">
-                  শর্তাবলী
-                </Link>
-              </li>
-              <li>
+              {hasAdminRole(user) && <li>
                 <Link href="/admin" className="text-orange-500 hover:text-orange-400 hover:underline font-semibold">
-                  অ্যাডমিন ড্যাশবোর্ড
+                  {t("footer.adminDashboard")}
                 </Link>
-              </li>
+              </li>}
             </ul>
           </div>
 
         </div>
 
-        <div className="border-t border-stone-800 mt-12 pt-8">
+        <div className="border-t border-stone-800 dark:border-border mt-12 pt-8">
           <p className="text-xs text-stone-500">
-            © {new Date().getFullYear()} Importora. সর্বস্বত্ব সংরক্ষিত।
+            © {new Date().getFullYear()} Importora. {t("footer.allRightsReserved")}
           </p>
           <p className="text-[11px] text-stone-600 mt-2">
-            ক্লায়েন্ট প্রেজেন্টেশন ডেমো • মূল্য, রিভিউ এবং ট্র্যাকিং নমুনা ডেটা।
+            {t("footer.demoDisclaimer")}
           </p>
         </div>
       </div>

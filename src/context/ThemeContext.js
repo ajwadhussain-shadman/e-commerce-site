@@ -13,7 +13,7 @@ export function ThemeProvider({ children }) {
     try {
       const stored = localStorage.getItem(THEME_STORAGE_KEY);
       if (stored === "dark" || stored === "light") {
-        setThemeState(stored);
+        queueMicrotask(() => setThemeState(stored));
         if (stored === "dark") {
           document.documentElement.classList.add("dark");
         } else {
@@ -23,7 +23,7 @@ export function ThemeProvider({ children }) {
         window.matchMedia &&
         window.matchMedia("(prefers-color-scheme: dark)").matches
       ) {
-        setThemeState("dark");
+        queueMicrotask(() => setThemeState("dark"));
         document.documentElement.classList.add("dark");
       }
     } catch (e) {

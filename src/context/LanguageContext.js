@@ -14,11 +14,10 @@ export function LanguageProvider({ children }) {
     try {
       const stored = localStorage.getItem(LANG_STORAGE_KEY);
       if (stored && translations[stored]) {
-        setLanguageState(stored);
+        queueMicrotask(() => setLanguageState(stored));
         document.documentElement.lang = stored;
       } else {
         // Default to Bangla if no stored preference
-        setLanguageState("bn");
         document.documentElement.lang = "bn";
       }
     } catch (e) {

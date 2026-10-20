@@ -1,7 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
 import { useToast } from "./ToastContext";
+import { toMinorUnits, fromMinorUnits } from "@/lib/currency.mjs";
 
 const CartContext = createContext(null);
 const CART_STORAGE_KEY = "novella_cart_v1";
@@ -24,7 +25,8 @@ export function CartProvider({ children }) {
     try {
       const stored = localStorage.getItem(CART_STORAGE_KEY);
       if (stored) {
-        setItems(JSON.parse(stored));
+        const storedItems = JSON.parse(stored);
+        queueMicrotask(() => setItems(storedItems));
       }
     } catch (e) {
       console.warn("Could not load cart from storage", e);
@@ -113,31 +115,35 @@ export function CartProvider({ children }) {
     addToast("Coupon removed", "info");
   };
 
-  // Calculations
+  // Calculations. Keep money in integer paisa so fractional product prices
+  // cannot accumulate floating-point noise in the displayed totals.
   const itemCount = items.reduce((total, item) => total + item.quantity, 0);
 
-  const subtotal = items.reduce((sum, item) => {
-    const unitPrice = item.product.discountPrice || item.product.price;
-    return sum + unitPrice * item.quantity;
+  const subtotalMinor = items.reduce((sum, item) => {
+    const unitMinor = toMinorUnits(item.product.discountPrice || item.product.price) || 0;
+    return sum + unitMinor * item.quantity;
   }, 0);
+  const subtotal = fromMinorUnits(subtotalMinor);
 
   // Free shipping threshold = ৳3,000
-  let standardShippingFee = deliveryArea === "dhaka" ? 120 : 180;
-  let shippingFee = subtotal >= 3000 ? 0 : standardShippingFee;
+  const standardShippingMinor = deliveryArea === "dhaka" ? 12000 : 18000;
+  let shippingMinor = subtotalMinor >= 300000 ? 0 : standardShippingMinor;
 
-  let discount = 0;
+  let discountMinor = 0;
   if (appliedCoupon) {
     if (appliedCoupon.type === "percent") {
-      discount = Math.round((subtotal * appliedCoupon.value) / 100);
+      discountMinor = Math.round((subtotalMinor * appliedCoupon.value) / 100);
     } else if (appliedCoupon.type === "flat") {
-      discount = Math.min(appliedCoupon.value, subtotal);
+      discountMinor = Math.min(toMinorUnits(appliedCoupon.value) || 0, subtotalMinor);
     } else if (appliedCoupon.type === "shipping") {
-      shippingFee = 0;
+      shippingMinor = 0;
     }
   }
 
-  const freeShippingRemaining = Math.max(0, 3000 - subtotal);
-  const total = Math.max(0, subtotal - discount + shippingFee);
+  const shippingFee = fromMinorUnits(shippingMinor);
+  const discount = fromMinorUnits(discountMinor);
+  const freeShippingRemaining = fromMinorUnits(Math.max(0, 300000 - subtotalMinor));
+  const total = fromMinorUnits(Math.max(0, subtotalMinor - discountMinor + shippingMinor));
 
   return (
     <CartContext.Provider

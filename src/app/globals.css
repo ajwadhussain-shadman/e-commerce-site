@@ -6,12 +6,14 @@
 :root {
   --background: #faf8f4;
   --foreground: #29251f;
+  --muted-foreground: #57534e;
   --surface: #ffffff;
   --surface-warm: #f5ede1;
   --surface-muted: #f0ebe4;
   --border: #e8e1d8;
   --primary: #e98200;
   --primary-hover: #d17600;
+  --on-primary: #ffffff;
   --accent: #e98200;
   --success: #16a34a;
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -26,12 +28,14 @@
 .dark {
   --background: #1c1917;
   --foreground: #faf8f4;
+  --muted-foreground: #a8a29e;
   --surface: #29251f;
   --surface-warm: #3d3630;
   --surface-muted: #44403a;
   --border: #57534e;
   --primary: #f59e0b;
   --primary-hover: #fbbf24;
+  --on-primary: #1c1917;
   --accent: #f59e0b;
   --success: #34d399;
 }
@@ -40,11 +44,14 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted-foreground);
   --color-surface: var(--surface);
   --color-surface-warm: var(--surface-warm);
   --color-surface-muted: var(--surface-muted);
   --color-border: var(--border);
   --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-on-primary: var(--on-primary);
   --color-accent: var(--accent);
 }
 
@@ -162,4 +169,293 @@ body {
   .no-scrollbar {
     scroll-behavior: auto;
   }
+}
+
+/* ==========================================================================
+   Dark-mode compatibility layer
+   --------------------------------------------------------------------------
+   The design system drives colour through semantic tokens (bg-surface,
+   text-foreground, border-border, …), and components are being migrated to
+   those tokens. Some components still hard-code Tailwind palette utilities
+   that were written for a light-only UI — `bg-white`, `text-stone-900`,
+   `text-amber-900`, `bg-emerald-50` and friends. Those values do not respond
+   to the theme, so in dark mode they kept their light-mode colour and the
+   text disappeared against the dark surface.
+
+   Instead of rewriting hundreds of class strings (and risking regressions in
+   markup), the offending palette utilities are remapped once, here, scoped to
+   `.dark`. Light mode is completely untouched — none of these selectors match
+   when <html class="dark"> is absent — so the light theme renders exactly as
+   it did before.
+
+   Precedence note: Tailwind v4 emits its utilities inside `@layer utilities`.
+   These rules are intentionally *unlayered*, and unlayered author styles win
+   over layered ones, so the remap applies without `!important`.
+
+   New components should use the semantic tokens directly; this layer exists
+   to keep the un-migrated ones readable until they are converted.
+   ========================================================================== */
+
+/* --- Surfaces: light panels become the dark surface tokens ---------------- */
+.dark .bg-white,
+.dark .hover\:bg-white:hover {
+  background-color: var(--surface);
+}
+
+.dark .bg-stone-50,
+.dark .bg-stone-100,
+.dark .hover\:bg-stone-50:hover,
+.dark .hover\:bg-stone-100:hover {
+  background-color: var(--surface-muted);
+}
+
+.dark .bg-stone-200,
+.dark .hover\:bg-stone-200:hover {
+  background-color: var(--surface-warm);
+}
+
+/* Translucent light panels (floating menus, overlays on cards). */
+.dark .bg-white\/70,
+.dark .bg-white\/75,
+.dark .bg-white\/80,
+.dark .bg-white\/85,
+.dark .bg-white\/90,
+.dark .bg-white\/95 {
+  background-color: color-mix(in oklab, var(--surface) 92%, transparent);
+}
+
+/* --- Body copy ------------------------------------------------------------ */
+.dark .text-black,
+.dark .text-stone-950,
+.dark .text-stone-900,
+.dark .text-stone-800,
+.dark .text-stone-700,
+.dark .hover\:text-stone-900:hover,
+.dark .hover\:text-stone-800:hover,
+.dark .hover\:text-stone-700:hover,
+.dark .group-hover\:text-stone-900:is(:where(.group):hover *) {
+  color: var(--foreground);
+}
+
+.dark .text-stone-600,
+.dark .text-stone-500,
+.dark .text-stone-400,
+.dark .hover\:text-stone-600:hover,
+.dark .hover\:text-stone-500:hover,
+.dark .group-hover\:text-stone-600:is(:where(.group):hover *) {
+  color: var(--muted-foreground);
+}
+
+/* Form controls: placeholder + focus states follow the same rule. */
+.dark .placeholder-stone-400::placeholder,
+.dark .placeholder\:text-stone-400::placeholder,
+.dark .placeholder\:text-stone-500::placeholder {
+  color: var(--muted-foreground);
+}
+
+/* --- Borders and dividers ------------------------------------------------- */
+.dark .border-stone-50,
+.dark .border-stone-100,
+.dark .border-stone-200,
+.dark .border-stone-300,
+.dark .border-stone-400,
+.dark .border-stone-100\/80,
+.dark .border-stone-200\/80,
+.dark .border-stone-200\/90,
+.dark .border-stone-300\/80 {
+  border-color: var(--border);
+}
+
+.dark .divide-stone-100 > :not(:last-child),
+.dark .divide-stone-200 > :not(:last-child) {
+  border-color: var(--border);
+}
+
+/* --- Amber / orange accents (the brand accent family) ---------------------
+   Amber 700–950 are dark browns: ~2:1 against a dark surface, i.e. invisible.
+   They flip to a light amber; light amber tints behind them are turned into
+   translucent tints so the pairing keeps its contrast in both directions. */
+.dark .text-amber-950,
+.dark .text-amber-900,
+.dark .text-amber-800,
+.dark .text-amber-700 {
+  color: #fcd34d;
+}
+
+.dark .hover\:text-amber-950:hover,
+.dark .hover\:text-amber-900:hover,
+.dark .hover\:text-amber-800:hover,
+.dark .hover\:text-amber-700:hover,
+.dark .group-hover\:text-amber-900:is(:where(.group):hover *),
+.dark .group-hover\:text-amber-800:is(:where(.group):hover *) {
+  color: #fde68a;
+}
+
+.dark .text-orange-700,
+.dark .text-orange-800,
+.dark .text-orange-900 {
+  color: #fdba74;
+}
+
+.dark .text-orange-600,
+.dark .group-hover\:text-orange-600:is(:where(.group):hover *),
+.dark .hover\:text-orange-600:hover {
+  color: #fb923c;
+}
+
+.dark .hover\:text-orange-700:hover {
+  color: #fdba74;
+}
+
+.dark .bg-amber-50,
+.dark .bg-amber-100,
+.dark .bg-amber-200,
+.dark .hover\:bg-amber-50:hover,
+.dark .hover\:bg-amber-100:hover,
+.dark .hover\:bg-amber-200:hover {
+  background-color: color-mix(in oklab, #f59e0b 14%, transparent);
+}
+
+.dark .bg-amber-50\/40 {
+  background-color: color-mix(in oklab, #f59e0b 7%, transparent);
+}
+
+/* Opacity-suffixed light tints. Enumerated rather than matched by attribute so
+   that a `hover:` variant is not mistaken for a permanent background. */
+.dark .bg-amber-50\/50,
+.dark .bg-amber-50\/70 {
+  background-color: color-mix(in oklab, #f59e0b 12%, transparent);
+}
+
+.dark .bg-amber-100\/60 {
+  background-color: color-mix(in oklab, #f59e0b 16%, transparent);
+}
+
+.dark .bg-stone-50\/70 {
+  background-color: var(--surface-muted);
+}
+
+.dark .hover\:bg-stone-50\/60:hover,
+.dark .hover\:bg-stone-50\/70:hover {
+  background-color: var(--surface-muted);
+}
+
+.dark .border-amber-200,
+.dark .border-amber-300,
+.dark .border-amber-200\/60,
+.dark .border-amber-200\/80 {
+  border-color: color-mix(in oklab, #f59e0b 38%, transparent);
+}
+
+/* Dark ambers used as borders (selected states) read as near-black on a dark
+   surface, so they flip to a light amber too. */
+.dark .border-amber-700,
+.dark .border-amber-800,
+.dark .border-amber-900 {
+  border-color: #fbbf24;
+}
+
+.dark .border-amber-500\/50,
+.dark .border-amber-700\/20,
+.dark .border-amber-700\/30 {
+  border-color: color-mix(in oklab, #f59e0b 45%, transparent);
+}
+
+/* --- Emerald / green: success and "in stock" ------------------------------ */
+.dark .text-emerald-950,
+.dark .text-emerald-900,
+.dark .text-emerald-800,
+.dark .text-emerald-700,
+.dark .hover\:text-emerald-700:hover {
+  color: #6ee7b7;
+}
+
+.dark .bg-emerald-50,
+.dark .bg-emerald-100,
+.dark .hover\:bg-emerald-50:hover,
+.dark .hover\:bg-emerald-100:hover {
+  background-color: color-mix(in oklab, #10b981 16%, transparent);
+}
+
+.dark .border-emerald-200,
+.dark .border-emerald-300 {
+  border-color: color-mix(in oklab, #10b981 38%, transparent);
+}
+
+/* --- Rose / red: destructive actions, discounts, errors ------------------- */
+.dark .text-rose-900,
+.dark .text-rose-800,
+.dark .text-rose-700,
+.dark .text-red-700,
+.dark .text-red-600,
+.dark .group-hover\:text-rose-600:is(:where(.group):hover *) {
+  color: #fda4af;
+}
+
+.dark .hover\:text-rose-900:hover,
+.dark .hover\:text-rose-700:hover,
+.dark .hover\:text-rose-600:hover,
+.dark .hover\:text-red-700:hover,
+.dark .hover\:text-red-600:hover {
+  color: #fecdd3;
+}
+
+.dark .bg-rose-50,
+.dark .bg-rose-100,
+.dark .bg-red-50,
+.dark .bg-red-100,
+.dark .hover\:bg-rose-50:hover,
+.dark .hover\:bg-rose-100:hover,
+.dark .hover\:bg-red-50:hover {
+  background-color: color-mix(in oklab, #f43f5e 15%, transparent);
+}
+
+.dark .border-rose-200,
+.dark .border-red-200 {
+  border-color: color-mix(in oklab, #f43f5e 36%, transparent);
+}
+
+/* --- Blue / sky: information, links, "shipped" ---------------------------- */
+.dark .text-blue-900,
+.dark .text-blue-800,
+.dark .text-blue-700,
+.dark .text-sky-800,
+.dark .text-sky-700 {
+  color: #93c5fd;
+}
+
+.dark .bg-blue-50,
+.dark .bg-blue-100,
+.dark .bg-sky-50,
+.dark .bg-sky-100 {
+  background-color: color-mix(in oklab, #3b82f6 16%, transparent);
+}
+
+.dark .border-blue-200,
+.dark .border-sky-200 {
+  border-color: color-mix(in oklab, #3b82f6 36%, transparent);
+}
+
+/* --- Purple / violet: secondary categories -------------------------------- */
+.dark .text-purple-800,
+.dark .text-purple-700,
+.dark .text-violet-700,
+.dark .text-indigo-800,
+.dark .text-indigo-700 {
+  color: #c4b5fd;
+}
+
+.dark .bg-purple-50,
+.dark .bg-purple-100,
+.dark .bg-violet-50,
+.dark .bg-indigo-50 {
+  background-color: color-mix(in oklab, #8b5cf6 16%, transparent);
+}
+
+/* --- The logo plate must stay white ---------------------------------------
+   `public/img/logo2.png` is a white-background lockup, so its plate is white
+   in both themes. Declared after the `.bg-white` remap above on purpose: the
+   two selectors have equal specificity, so source order decides. */
+.dark .logo-plate {
+  background-color: #ffffff;
 }
