@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import SiteHeader from "@/components/common/SiteHeader";
 import CategoryNavigation from "@/components/common/CategoryNavigation";
@@ -14,6 +14,7 @@ import { useCart } from "@/context/CartContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { formatBDT } from "@/lib/currency.mjs";
 import { getPrimaryImage } from "@/lib/product-images.mjs";
+import { couponService } from "@/services/productService";
 import {
   Trash2,
   ArrowRight,
@@ -24,12 +25,20 @@ import {
   Plus,
   Sparkles,
   ShieldCheck,
+  Tag,
 } from "lucide-react";
 
 export default function CartPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [couponInput, setCouponInput] = useState("");
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [availableCoupons, setAvailableCoupons] = useState([]);
+
+  useEffect(() => {
+    couponService.getActiveCoupons().then((list) => {
+      setAvailableCoupons(Array.isArray(list) ? list : []);
+    });
+  }, []);
 
   const {
     items,
@@ -283,10 +292,10 @@ if (!isLoaded) {
                     <input
                       id="cartCoupon"
                       type="text"
-                      placeholder="Try 'IMPORT10' or 'WELCOME500'"
+                      placeholder="Enter promo code (e.g. SAVE12)"
                       value={couponInput}
                       onChange={(e) => setCouponInput(e.target.value)}
-                      className="flex-1 px-3 py-2 bg-surface-muted text-foreground placeholder-stone-400 text-xs rounded-xl border border-border focus:outline-hidden focus:border-amber-700"
+                      className="flex-1 px-3 py-2 bg-surface-muted text-foreground placeholder-stone-400 text-xs rounded-xl border border-border focus:outline-hidden focus:border-amber-700 font-mono uppercase"
                     />
                     <button
                       type="submit"
@@ -295,6 +304,26 @@ if (!isLoaded) {
                       Apply
                     </button>
                   </form>
+                )}
+
+                {!appliedCoupon && availableCoupons.length > 0 && (
+                  <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                    <span className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1">
+                      <Tag className="w-3 h-3 text-amber-700" />
+                      Available:
+                    </span>
+                    {availableCoupons.slice(0, 4).map((ac) => (
+                      <button
+                        key={ac.code}
+                        type="button"
+                        onClick={() => applyCoupon(ac.code)}
+                        className="px-2 py-0.5 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-200/90 text-amber-900 text-[10px] font-bold transition-colors font-mono cursor-pointer"
+                        title={ac.description}
+                      >
+                        {ac.code} ({ac.discountType === "percent" ? `${ac.discountValue}% OFF` : ac.discountType === "flat" ? `৳${ac.discountValue}` : "Free Ship"})
+                      </button>
+                    ))}
+                  </div>
                 )}
               </div>
 

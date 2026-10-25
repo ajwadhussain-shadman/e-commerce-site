@@ -9,7 +9,7 @@ const { normalizeMoney, toMinorUnits, fromMinorUnits, formatBDT } = require("./c
 const ORDER_STATUSES = new Set(["Pending", "Confirmed", "Processing", "Shipped", "Delivered", "Cancelled"]);
 const PAYMENT_METHOD = "Cash on Delivery";
 const MAX_BODY_SIZE = "1mb";
-const PRODUCT_FIELDS = ["name", "slug", "brand", "category", "subcategory", "images", "image", "imageAssets", "shortDescription", "fullDescription", "price", "discountPrice", "stock", "size", "countryOfOrigin", "isFeatured", "isNewArrival", "isBestSeller", "isActive", "specifications"];
+const PRODUCT_FIELDS = ["name", "slug", "brand", "category", "subcategory", "images", "image", "imageAssets", "shortDescription", "fullDescription", "price", "discountPrice", "stock", "size", "countryOfOrigin", "isFeatured", "isNewArrival", "isBestSeller", "isActive", "specifications", "discountPercentage", "discountTag"];
 const ORDER_TRANSITIONS = {
   Pending: new Set(["Confirmed", "Cancelled"]),
   Confirmed: new Set(["Processing", "Cancelled"]),
@@ -43,6 +43,16 @@ function publicProduct(document) {
   if (document.discountPrice !== null && document.discountPrice !== undefined) {
     const discountPrice = normalizeMoney(document.discountPrice);
     if (discountPrice !== null) result.discountPrice = discountPrice;
+  }
+  if (document.discountPercentage !== null && document.discountPercentage !== undefined && document.discountPercentage !== "") {
+    result.discountPercentage = Number(document.discountPercentage);
+  } else if (result.discountPrice && result.price && result.price > result.discountPrice) {
+    result.discountPercentage = Math.round(((result.price - result.discountPrice) / result.price) * 100);
+  }
+  if (document.discountTag) {
+    result.discountTag = String(document.discountTag).trim();
+  } else if (result.discountPercentage) {
+    result.discountTag = `${result.discountPercentage}% OFF`;
   }
   return result;
 }
@@ -159,10 +169,32 @@ function validateProduct(input, current = {}) {
   if (price === null || price <= 0) throw Object.assign(new Error("price must be greater than zero"), { status: 400 });
   if (!Number.isSafeInteger(stock) || stock < 0) throw Object.assign(new Error("stock must be a non-negative whole number"), { status: 400 });
   const hasDiscountPrice = value.discountPrice !== null && value.discountPrice !== undefined && value.discountPrice !== "";
-  const discountPrice = hasDiscountPrice ? normalizeMoney(value.discountPrice) : null;
+  let discountPrice = hasDiscountPrice ? normalizeMoney(value.discountPrice) : null;
   if (hasDiscountPrice && (discountPrice === null || discountPrice <= 0 || discountPrice > price)) {
     throw Object.assign(new Error("discountPrice must be positive and no greater than price"), { status: 400 });
   }
+
+  let discountPercentage = null;
+  if (value.discountPercentage !== null && value.discountPercentage !== undefined && value.discountPercentage !== "") {
+    const rawPct = Number(value.discountPercentage);
+    if (!Number.isNaN(rawPct) && rawPct >= 0 && rawPct <= 100) {
+      discountPercentage = Math.round(rawPct * 100) / 100;
+    }
+  }
+
+  if (discountPercentage !== null && discountPercentage > 0 && discountPrice === null && price > 0) {
+    discountPrice = normalizeMoney(Math.round(price * (1 - discountPercentage / 100) * 100) / 100);
+  } else if (discountPrice !== null && discountPercentage === null && price > 0) {
+    discountPercentage = Math.round(((price - discountPrice) / price) * 100);
+  }
+
+  let discountTag = null;
+  if (typeof value.discountTag === "string" && value.discountTag.trim()) {
+    discountTag = value.discountTag.trim().slice(0, 60);
+  } else if (discountPercentage !== null && discountPercentage > 0) {
+    discountTag = `${discountPercentage}% OFF`;
+  }
+
   const hasImagesArray = Array.isArray(value.images);
   const imageCandidates = hasImagesArray ? [...value.images] : [];
   if (!hasImagesArray && typeof value.image === "string" && value.image.trim()) {
@@ -190,7 +222,7 @@ function validateProduct(input, current = {}) {
   return {
     ...value,
     name: value.name.trim(), brand: value.brand.trim(), category: value.category.trim(),
-    subcategory: value.subcategory.trim(), slug, price, discountPrice, stock, images, image: images[0],
+    subcategory: value.subcategory.trim(), slug, price, discountPrice, discountPercentage, discountTag, stock, images, image: images[0],
     rating: 0,
     reviewCount: 0,
     imageAssets,
@@ -255,6 +287,12 @@ const users = db.collection("user");
 const reviews = db.collection("reviews");
 const notifications = db.collection("notifications");
 const banners = db.collection("banners");
+const coupons = db.collection("coupons");
+const discountRules = db.collection("discountRules");
+
+coupons.createIndex({ code: 1 }, { unique: true }).catch(() => {});
+coupons.createIndex({ isActive: 1, isApproved: 1 }).catch(() => {});
+discountRules.createIndex({ targetType: 1, isActive: 1 }).catch(() => {});
 
   notifications.createIndex({ userId: 1, createdAt: -1 }).catch((error) => {
     console.warn("Failed to create notifications index:", error.message);
@@ -952,12 +990,46 @@ const banners = db.collection("banners");
         const subtotal = fromMinorUnits(subtotalMinor);
         const coupon = String(body.couponCode || "").trim().toUpperCase();
         let discountMinor = 0;
-        if (coupon === "IMPORT10") discountMinor = Math.round((subtotalMinor * 10) / 100);
-        else if (coupon === "WELCOME500") {
-          if (subtotalMinor < 200000) throw Object.assign(new Error("WELCOME500 requires a minimum order of 2000"), { status: 400 });
-          discountMinor = 50000;
-        } else if (coupon !== "" && coupon !== "FREESHIP") throw Object.assign(new Error("Invalid coupon code"), { status: 400 });
-        const freeShipping = subtotalMinor >= 300000 || coupon === "FREESHIP";
+        let couponDoc = null;
+        let couponFreeShipping = false;
+
+        if (coupon) {
+          couponDoc = await coupons.findOne({ code: coupon }, transactionSession ? { session: transactionSession } : {});
+          if (couponDoc) {
+            if (!couponDoc.isApproved) throw Object.assign(new Error("This promo code is not approved"), { status: 400 });
+            if (couponDoc.isActive === false) throw Object.assign(new Error("This promo code is currently inactive"), { status: 400 });
+            if (couponDoc.expiryDate && new Date(couponDoc.expiryDate) < new Date()) {
+              throw Object.assign(new Error("This promo code has expired"), { status: 400 });
+            }
+            if (couponDoc.usageLimit && (couponDoc.usedCount || 0) >= couponDoc.usageLimit) {
+              throw Object.assign(new Error("This promo code usage limit has been reached"), { status: 400 });
+            }
+            const minSpendMinor = toMinorUnits(couponDoc.minSpend || 0);
+            if (minSpendMinor && subtotalMinor < minSpendMinor) {
+              throw Object.assign(new Error(`Minimum order of ৳${couponDoc.minSpend} required for this promo code`), { status: 400 });
+            }
+            if (couponDoc.discountType === "percent") {
+              let calc = Math.round((subtotalMinor * Number(couponDoc.discountValue || 0)) / 100);
+              if (couponDoc.maxDiscount) {
+                const maxCapMinor = toMinorUnits(couponDoc.maxDiscount);
+                if (maxCapMinor !== null && calc > maxCapMinor) calc = maxCapMinor;
+              }
+              discountMinor = calc;
+            } else if (couponDoc.discountType === "flat") {
+              discountMinor = Math.min(toMinorUnits(couponDoc.discountValue || 0) || 0, subtotalMinor);
+            } else if (couponDoc.discountType === "shipping") {
+              couponFreeShipping = true;
+            }
+          } else if (coupon === "IMPORT10") {
+            discountMinor = Math.round((subtotalMinor * 10) / 100);
+          } else if (coupon === "WELCOME500") {
+            if (subtotalMinor < 200000) throw Object.assign(new Error("WELCOME500 requires a minimum order of 2000"), { status: 400 });
+            discountMinor = 50000;
+          } else if (coupon !== "" && coupon !== "FREESHIP") {
+            throw Object.assign(new Error("Invalid coupon code"), { status: 400 });
+          }
+        }
+        const freeShipping = subtotalMinor >= 300000 || coupon === "FREESHIP" || couponFreeShipping;
         const dhaka = customer.district.toLowerCase() === "dhaka";
         const shippingFeeMinor = freeShipping ? 0 : dhaka ? 12000 : 18000;
         const expressFeeMinor = body.shippingSpeed === "express" ? 8000 : 0;
@@ -976,6 +1048,9 @@ const banners = db.collection("banners");
           createdAt: now, updatedAt: now,
         };
 await orders.insertOne(order, transactionSession ? { session: transactionSession } : {});
+        if (couponDoc?._id) {
+          coupons.updateOne({ _id: couponDoc._id }, { $inc: { usedCount: 1 } }, transactionSession ? { session: transactionSession } : {}).catch(() => {});
+        }
         // Create notifications for admins (non-blocking)
         try {
           const admins = await db.collection("user").find({ role: "admin" }).toArray();
@@ -1354,6 +1429,464 @@ await orders.insertOne(order, transactionSession ? { session: transactionSession
 
       await banners.deleteOne(selector);
       return res.json({ success: true });
+    } catch (error) { next(error); }
+  });
+
+  // --- Promo Code & Discount Tag Endpoints ---
+
+  router.get("/coupons/active", async (_req, res, next) => {
+    try {
+      const now = new Date();
+      const query = {
+        isActive: true,
+        isApproved: true,
+        $or: [{ expiryDate: null }, { expiryDate: { $gt: now.toISOString() } }],
+      };
+      const list = await coupons.find(query).sort({ createdAt: -1 }).toArray();
+      const sanitized = list
+        .filter((c) => !c.usageLimit || (c.usedCount || 0) < c.usageLimit)
+        .map((c) => ({
+          id: String(c._id),
+          code: c.code,
+          description: c.description,
+          discountType: c.discountType,
+          discountValue: c.discountValue,
+          minSpend: c.minSpend || 0,
+          maxDiscount: c.maxDiscount || null,
+          expiryDate: c.expiryDate || null,
+        }));
+      return res.json({ success: true, count: sanitized.length, data: sanitized });
+    } catch (error) { next(error); }
+  });
+
+  router.post("/coupons/validate", async (req, res, next) => {
+    try {
+      const code = String(req.body?.code || "").trim().toUpperCase();
+      const subtotal = Math.max(0, Number(req.body?.subtotal || 0));
+      if (!code) return res.status(400).json({ success: false, message: "Coupon code is required" });
+
+      const couponDoc = await coupons.findOne({ code });
+      if (couponDoc) {
+        if (!couponDoc.isApproved) {
+          return res.status(400).json({ success: false, message: "This promo code is pending approval and cannot be used" });
+        }
+        if (couponDoc.isActive === false) {
+          return res.status(400).json({ success: false, message: "This promo code is currently inactive" });
+        }
+        if (couponDoc.expiryDate && new Date(couponDoc.expiryDate) < new Date()) {
+          return res.status(400).json({ success: false, message: "This promo code has expired" });
+        }
+        if (couponDoc.usageLimit && (couponDoc.usedCount || 0) >= couponDoc.usageLimit) {
+          return res.status(400).json({ success: false, message: "This promo code usage limit has been reached" });
+        }
+        if (couponDoc.minSpend && subtotal < couponDoc.minSpend) {
+          return res.status(400).json({ success: false, message: `Minimum order of ৳${couponDoc.minSpend} required for this promo code` });
+        }
+
+        let discount = 0;
+        if (couponDoc.discountType === "percent") {
+          discount = Math.round((subtotal * Number(couponDoc.discountValue || 0)) / 100);
+          if (couponDoc.maxDiscount && discount > couponDoc.maxDiscount) discount = couponDoc.maxDiscount;
+        } else if (couponDoc.discountType === "flat") {
+          discount = Math.min(Number(couponDoc.discountValue || 0), subtotal);
+        }
+
+        return res.json({
+          success: true,
+          valid: true,
+          coupon: {
+            code: couponDoc.code,
+            description: couponDoc.description,
+            discountType: couponDoc.discountType,
+            discountValue: couponDoc.discountValue,
+            minSpend: couponDoc.minSpend || 0,
+            maxDiscount: couponDoc.maxDiscount || null,
+            freeShipping: couponDoc.discountType === "shipping",
+          },
+          discount,
+          freeShipping: couponDoc.discountType === "shipping",
+        });
+      }
+
+      // Legacy fallback support
+      if (code === "IMPORT10") {
+        const discount = Math.round((subtotal * 10) / 100);
+        return res.json({
+          success: true,
+          valid: true,
+          coupon: { code: "IMPORT10", description: "10% off entire order", discountType: "percent", discountValue: 10, minSpend: 0, freeShipping: false },
+          discount,
+          freeShipping: false,
+        });
+      }
+      if (code === "WELCOME500") {
+        if (subtotal < 2000) return res.status(400).json({ success: false, message: "WELCOME500 requires a minimum order of ৳2,000" });
+        return res.json({
+          success: true,
+          valid: true,
+          coupon: { code: "WELCOME500", description: "৳500 off on orders above ৳2,000", discountType: "flat", discountValue: 500, minSpend: 2000, freeShipping: false },
+          discount: 500,
+          freeShipping: false,
+        });
+      }
+      if (code === "FREESHIP") {
+        return res.json({
+          success: true,
+          valid: true,
+          coupon: { code: "FREESHIP", description: "Free delivery nationwide", discountType: "shipping", discountValue: 0, minSpend: 0, freeShipping: true },
+          discount: 0,
+          freeShipping: true,
+        });
+      }
+
+      return res.status(400).json({ success: false, message: "Invalid promo code" });
+    } catch (error) { next(error); }
+  });
+
+  router.get("/admin/coupons", requireAdmin, async (req, res, next) => {
+    try {
+      const totalCount = await coupons.countDocuments();
+      if (totalCount === 0) {
+        const defaults = [
+          {
+            code: "IMPORT10",
+            description: "10% off entire order",
+            discountType: "percent",
+            discountValue: 10,
+            minSpend: 0,
+            maxDiscount: null,
+            isApproved: true,
+            isActive: true,
+            usedCount: 0,
+            usageLimit: 500,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+          {
+            code: "WELCOME500",
+            description: "৳500 off on orders above ৳2,000",
+            discountType: "flat",
+            discountValue: 500,
+            minSpend: 2000,
+            maxDiscount: null,
+            isApproved: true,
+            isActive: true,
+            usedCount: 0,
+            usageLimit: 200,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+          {
+            code: "FREESHIP",
+            description: "Free delivery nationwide",
+            discountType: "shipping",
+            discountValue: 0,
+            minSpend: 0,
+            maxDiscount: null,
+            isApproved: true,
+            isActive: true,
+            usedCount: 0,
+            usageLimit: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+          {
+            code: "SAVE12",
+            description: "12% off storewide discount",
+            discountType: "percent",
+            discountValue: 12,
+            minSpend: 1000,
+            maxDiscount: 1500,
+            isApproved: true,
+            isActive: true,
+            usedCount: 0,
+            usageLimit: 100,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ];
+        await coupons.insertMany(defaults).catch(() => {});
+      }
+
+      const search = String(req.query.search || "").trim();
+      const query = {};
+      if (search) {
+        query.$or = [
+          { code: { $regex: escapeRegex(search), $options: "i" } },
+          { description: { $regex: escapeRegex(search), $options: "i" } },
+        ];
+      }
+      const data = await coupons.find(query).sort({ createdAt: -1 }).toArray();
+      return res.json({
+        success: true,
+        count: data.length,
+        data: data.map((c) => ({
+          ...c,
+          id: String(c._id),
+        })),
+      });
+    } catch (error) { next(error); }
+  });
+
+  router.post("/admin/coupons", requireAdmin, async (req, res, next) => {
+    try {
+      const code = String(req.body?.code || "").trim().toUpperCase();
+      if (!code || !/^[A-Z0-9_-]{3,30}$/.test(code)) {
+        return res.status(400).json({ success: false, message: "Code must be 3-30 letters, numbers, hyphens, or underscores" });
+      }
+      const existing = await coupons.findOne({ code });
+      if (existing) return res.status(409).json({ success: false, message: `Promo code "${code}" already exists` });
+
+      const discountType = String(req.body?.discountType || "percent").toLowerCase();
+      if (!["percent", "flat", "shipping"].includes(discountType)) {
+        return res.status(400).json({ success: false, message: "Discount type must be 'percent', 'flat', or 'shipping'" });
+      }
+
+      let discountValue = Number(req.body?.discountValue || 0);
+      if (discountType === "percent" && (Number.isNaN(discountValue) || discountValue <= 0 || discountValue > 100)) {
+        return res.status(400).json({ success: false, message: "Percentage discount must be between 1 and 100" });
+      }
+      if (discountType === "flat" && (Number.isNaN(discountValue) || discountValue <= 0)) {
+        return res.status(400).json({ success: false, message: "Flat discount amount must be greater than 0" });
+      }
+      if (discountType === "shipping") discountValue = 0;
+
+      const minSpend = Math.max(0, Number(req.body?.minSpend || 0));
+      const maxDiscount = req.body?.maxDiscount !== undefined && req.body?.maxDiscount !== null && req.body?.maxDiscount !== ""
+        ? Math.max(0, Number(req.body.maxDiscount) || 0)
+        : null;
+      const usageLimit = req.body?.usageLimit !== undefined && req.body?.usageLimit !== null && req.body?.usageLimit !== ""
+        ? Math.max(1, Number.parseInt(req.body.usageLimit, 10) || 0)
+        : null;
+      const expiryDate = req.body?.expiryDate ? new Date(req.body.expiryDate).toISOString() : null;
+      const isApproved = req.body?.isApproved !== undefined ? Boolean(req.body.isApproved) : true;
+      const isActive = req.body?.isActive !== undefined ? Boolean(req.body.isActive) : true;
+      const description = String(req.body?.description || "").trim().slice(0, 300) || (discountType === "percent" ? `${discountValue}% off` : discountType === "flat" ? `৳${discountValue} flat off` : "Free Shipping");
+
+      const now = new Date();
+      const newCoupon = {
+        code,
+        description,
+        discountType,
+        discountValue,
+        minSpend,
+        maxDiscount,
+        usageLimit,
+        usedCount: 0,
+        expiryDate,
+        isApproved,
+        isActive,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      const result = await coupons.insertOne(newCoupon);
+      return res.status(201).json({
+        success: true,
+        data: { ...newCoupon, id: String(result.insertedId), _id: result.insertedId },
+        message: `Promo code "${code}" created successfully`,
+      });
+    } catch (error) { next(error); }
+  });
+
+  function couponSelector(idOrCode) {
+    const value = String(idOrCode || "").trim();
+    if (ObjectId.isValid(value)) return { _id: new ObjectId(value) };
+    return { $or: [{ id: value }, { _id: value }, { code: value.toUpperCase() }] };
+  }
+
+  router.put("/admin/coupons/:id", requireAdmin, async (req, res, next) => {
+    try {
+      const selector = couponSelector(req.params.id);
+      const existing = await coupons.findOne(selector);
+      if (!existing) return res.status(404).json({ success: false, message: "Promo code not found" });
+
+      const updates = {};
+      if (req.body?.code) {
+        const code = String(req.body.code).trim().toUpperCase();
+        if (!/^[A-Z0-9_-]{3,30}$/.test(code)) return res.status(400).json({ success: false, message: "Code must be 3-30 letters, numbers, hyphens, or underscores" });
+        if (code !== existing.code && (await coupons.findOne({ code, _id: { $ne: existing._id } }))) {
+          return res.status(409).json({ success: false, message: `Promo code "${code}" already exists` });
+        }
+        updates.code = code;
+      }
+      if (req.body?.description !== undefined) updates.description = String(req.body.description).trim().slice(0, 300);
+      if (req.body?.discountType) {
+        const type = String(req.body.discountType).toLowerCase();
+        if (!["percent", "flat", "shipping"].includes(type)) return res.status(400).json({ success: false, message: "Invalid discount type" });
+        updates.discountType = type;
+      }
+      if (req.body?.discountValue !== undefined) {
+        const val = Number(req.body.discountValue);
+        if (Number.isNaN(val) || val < 0) return res.status(400).json({ success: false, message: "Invalid discount value" });
+        updates.discountValue = val;
+      }
+      if (req.body?.minSpend !== undefined) updates.minSpend = Math.max(0, Number(req.body.minSpend) || 0);
+      if (req.body?.maxDiscount !== undefined) updates.maxDiscount = req.body.maxDiscount ? Math.max(0, Number(req.body.maxDiscount) || 0) : null;
+      if (req.body?.usageLimit !== undefined) updates.usageLimit = req.body.usageLimit ? Math.max(1, Number.parseInt(req.body.usageLimit, 10) || 0) : null;
+      if (req.body?.expiryDate !== undefined) updates.expiryDate = req.body.expiryDate ? new Date(req.body.expiryDate).toISOString() : null;
+      if (req.body?.isApproved !== undefined) updates.isApproved = Boolean(req.body.isApproved);
+      if (req.body?.isActive !== undefined) updates.isActive = Boolean(req.body.isActive);
+      updates.updatedAt = new Date();
+
+      await coupons.updateOne(selector, { $set: updates });
+      const updated = await coupons.findOne(selector);
+      return res.json({ success: true, data: { ...updated, id: String(updated._id) }, message: "Promo code updated successfully" });
+    } catch (error) { next(error); }
+  });
+
+  router.patch("/admin/coupons/:id/approve", requireAdmin, async (req, res, next) => {
+    try {
+      const selector = couponSelector(req.params.id);
+      const existing = await coupons.findOne(selector);
+      if (!existing) return res.status(404).json({ success: false, message: "Promo code not found" });
+
+      const newApproved = req.body?.isApproved !== undefined ? Boolean(req.body.isApproved) : !existing.isApproved;
+      await coupons.updateOne(selector, { $set: { isApproved: newApproved, updatedAt: new Date() } });
+      return res.json({ success: true, isApproved: newApproved, message: newApproved ? "Promo code approved" : "Promo code marked pending approval" });
+    } catch (error) { next(error); }
+  });
+
+  router.patch("/admin/coupons/:id/status", requireAdmin, async (req, res, next) => {
+    try {
+      const selector = couponSelector(req.params.id);
+      const existing = await coupons.findOne(selector);
+      if (!existing) return res.status(404).json({ success: false, message: "Promo code not found" });
+
+      const newStatus = req.body?.isActive !== undefined ? Boolean(req.body.isActive) : !existing.isActive;
+      await coupons.updateOne(selector, { $set: { isActive: newStatus, updatedAt: new Date() } });
+      return res.json({ success: true, isActive: newStatus, message: newStatus ? "Promo code activated" : "Promo code deactivated" });
+    } catch (error) { next(error); }
+  });
+
+  router.delete("/admin/coupons/:id", requireAdmin, async (req, res, next) => {
+    try {
+      const selector = couponSelector(req.params.id);
+      const result = await coupons.deleteOne(selector);
+      if (!result.deletedCount) return res.status(404).json({ success: false, message: "Promo code not found" });
+      return res.json({ success: true, message: "Promo code deleted" });
+    } catch (error) { next(error); }
+  });
+
+  // --- Storewide & Category Discount Rules & Tag Endpoints ---
+
+  router.get("/admin/discount-rules", requireAdmin, async (_req, res, next) => {
+    try {
+      const rules = await discountRules.find({}).sort({ createdAt: -1 }).toArray();
+      return res.json({
+        success: true,
+        count: rules.length,
+        data: rules.map((r) => ({ ...r, id: String(r._id) })),
+      });
+    } catch (error) { next(error); }
+  });
+
+  router.post("/admin/discounts/apply", requireAdmin, async (req, res, next) => {
+    try {
+      const {
+        action = "apply",
+        targetType = "all",
+        category,
+        productIds,
+        discountPercentage,
+        discountTag,
+        campaignName,
+      } = req.body || {};
+
+      let filter = {};
+      if (targetType === "category") {
+        if (!category) return res.status(400).json({ success: false, message: "Category is required" });
+        filter = { category: String(category).trim() };
+      } else if (targetType === "product") {
+        if (!Array.isArray(productIds) || !productIds.length) {
+          return res.status(400).json({ success: false, message: "At least one product must be selected" });
+        }
+        const selectors = productIds.map((id) => (ObjectId.isValid(id) ? new ObjectId(id) : id));
+        filter = { $or: [{ _id: { $in: selectors } }, { id: { $in: productIds } }] };
+      }
+
+      if (action === "remove") {
+        const result = await products.updateMany(filter, {
+          $set: { discountPrice: null, discountPercentage: null, discountTag: null, updatedAt: new Date() },
+        });
+        if (targetType === "category") {
+          await discountRules.updateMany({ targetType: "category", category }, { $set: { isActive: false, updatedAt: new Date() } });
+        } else if (targetType === "all") {
+          await discountRules.updateMany({ targetType: "all" }, { $set: { isActive: false, updatedAt: new Date() } });
+        }
+        return res.json({ success: true, modifiedCount: result.modifiedCount, message: `Removed discounts from ${result.modifiedCount} product(s)` });
+      }
+
+      const pct = Number(discountPercentage);
+      if (Number.isNaN(pct) || pct <= 0 || pct > 100) {
+        return res.status(400).json({ success: false, message: "Discount percentage must be between 1 and 100" });
+      }
+
+      const tag = String(discountTag || `${Math.round(pct)}% OFF`).trim().slice(0, 60);
+
+      const matchingProducts = await products.find(filter).toArray();
+      let modifiedCount = 0;
+      for (const prod of matchingProducts) {
+        const price = Number(prod.price);
+        if (price > 0) {
+          const discountPrice = Math.max(1, Math.round(price * (1 - pct / 100) * 100) / 100);
+          await products.updateOne(
+            { _id: prod._id },
+            {
+              $set: {
+                discountPrice,
+                discountPercentage: Math.round(pct * 100) / 100,
+                discountTag: tag,
+                updatedAt: new Date(),
+              },
+            }
+          );
+          modifiedCount++;
+        }
+      }
+
+      const now = new Date();
+      await discountRules.insertOne({
+        targetType,
+        category: targetType === "category" ? category : null,
+        productIds: targetType === "product" ? productIds : [],
+        discountPercentage: Math.round(pct * 100) / 100,
+        discountTag: tag,
+        campaignName: campaignName || `${tag} on ${targetType === "all" ? "All Products" : targetType === "category" ? category : `${modifiedCount} Products`}`,
+        affectedCount: modifiedCount,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      return res.json({
+        success: true,
+        modifiedCount,
+        message: `Successfully applied "${tag}" to ${modifiedCount} product(s)!`,
+      });
+    } catch (error) { next(error); }
+  });
+
+  router.delete("/admin/discount-rules/:id", requireAdmin, async (req, res, next) => {
+    try {
+      const selector = ObjectId.isValid(req.params.id) ? { _id: new ObjectId(req.params.id) } : { id: req.params.id };
+      const rule = await discountRules.findOne(selector);
+      if (!rule) return res.status(404).json({ success: false, message: "Discount rule not found" });
+
+      if (req.query?.revert === "true") {
+        let filter = {};
+        if (rule.targetType === "category") filter = { category: rule.category };
+        else if (rule.targetType === "product" && Array.isArray(rule.productIds) && rule.productIds.length) {
+          const selectors = rule.productIds.map((id) => (ObjectId.isValid(id) ? new ObjectId(id) : id));
+          filter = { $or: [{ _id: { $in: selectors } }, { id: { $in: rule.productIds } }] };
+        }
+        await products.updateMany(filter, {
+          $set: { discountPrice: null, discountPercentage: null, discountTag: null, updatedAt: new Date() },
+        });
+      }
+
+      await discountRules.deleteOne(selector);
+      return res.json({ success: true, message: "Discount rule removed" });
     } catch (error) { next(error); }
   });
 

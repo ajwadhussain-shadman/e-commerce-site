@@ -152,3 +152,71 @@ export const reviewService = {
     return (await request(`/reviews/featured?limit=${limit}`)).data;
   },
 };
+
+export const couponService = {
+  async getActiveCoupons() {
+    try {
+      const res = await request("/coupons/active");
+      return res.data || [];
+    } catch {
+      return [];
+    }
+  },
+  async validateCoupon(code, subtotal) {
+    return request("/coupons/validate", {
+      method: "POST",
+      body: JSON.stringify({ code, subtotal }),
+    });
+  },
+  async getAdminCoupons(search = "") {
+    const params = new URLSearchParams();
+    if (search) params.set("search", search);
+    return (await request(`/admin/coupons${params.size ? `?${params}` : ""}`)).data || [];
+  },
+  async createCoupon(data) {
+    return (await request("/admin/coupons", {
+      method: "POST",
+      body: JSON.stringify(data),
+    })).data;
+  },
+  async updateCoupon(id, data) {
+    return (await request(`/admin/coupons/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    })).data;
+  },
+  async toggleApproval(id, isApproved) {
+    return request(`/admin/coupons/${encodeURIComponent(id)}/approve`, {
+      method: "PATCH",
+      body: JSON.stringify({ isApproved }),
+    });
+  },
+  async toggleStatus(id, isActive) {
+    return request(`/admin/coupons/${encodeURIComponent(id)}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ isActive }),
+    });
+  },
+  async deleteCoupon(id) {
+    return request(`/admin/coupons/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
+  },
+};
+
+export const discountService = {
+  async getDiscountRules() {
+    return (await request("/admin/discount-rules")).data || [];
+  },
+  async applyDiscount(data) {
+    return request("/admin/discounts/apply", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+  async removeDiscountRule(id, revert = true) {
+    return request(`/admin/discount-rules/${encodeURIComponent(id)}?revert=${revert}`, {
+      method: "DELETE",
+    });
+  },
+};

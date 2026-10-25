@@ -21,9 +21,21 @@ export default function ProductCard({ product }) {
     setTimeout(() => setIsAdding(false), 800);
   };
 
+  const discountPercent = product.discountPercentage || (
+    product.discountPrice && product.price && product.price > product.discountPrice
+      ? Math.round(((product.price - product.discountPrice) / product.price) * 100)
+      : 0
+  );
+  const discountBadge = product.discountTag || (discountPercent > 0 ? `${discountPercent}% OFF` : null);
+
   return (
     <div className="group bg-surface border border-border rounded-xl overflow-hidden hover:shadow-md transition-all duration-300 flex flex-col h-full">
       <div className="relative aspect-square bg-surface-muted overflow-hidden">
+        {discountBadge && (
+          <span className="absolute top-2 left-2 z-10 bg-rose-600 text-white text-[10px] sm:text-xs font-black px-2 py-0.5 rounded-md shadow-sm uppercase tracking-wide">
+            {discountBadge}
+          </span>
+        )}
         <Link href={`/products/${product.slug}`} className="block w-full h-full">
           <ProductImage
             src={getPrimaryImage(product)}
@@ -46,13 +58,20 @@ export default function ProductCard({ product }) {
 
         {/* Price & Add to Cart button */}
         <div className="mt-3 pt-3 border-t border-border flex items-center justify-between gap-2">
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-base font-bold text-foreground">
-              {formatBDT(product.discountPrice || product.price)}
-            </span>
-            {product.discountPrice && (
-              <span className="text-xs text-muted-foreground line-through">
-                {formatBDT(product.price)}
+          <div className="flex flex-col">
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-base font-bold text-foreground">
+                {formatBDT(product.discountPrice || product.price)}
+              </span>
+              {product.discountPrice && (
+                <span className="text-xs text-muted-foreground line-through">
+                  {formatBDT(product.price)}
+                </span>
+              )}
+            </div>
+            {discountBadge && (
+              <span className="text-[10px] font-bold text-rose-600">
+                {discountBadge}
               </span>
             )}
           </div>

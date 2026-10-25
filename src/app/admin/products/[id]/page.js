@@ -38,6 +38,57 @@ export default function EditProductPage({ params }) {
 
   const update = (field, value) => setProduct((current) => ({ ...current, [field]: value }));
 
+  const handlePriceChange = (val) => {
+    setProduct((current) => {
+      const next = { ...current, price: val };
+      if (val && current.discountPercentage) {
+        const pct = Number(current.discountPercentage);
+        if (pct > 0 && pct <= 100) {
+          next.discountPrice = String(Math.round(Number(val) * (1 - pct / 100)));
+        }
+      }
+      return next;
+    });
+  };
+
+  const handlePercentageChange = (pctVal) => {
+    setProduct((current) => {
+      const pct = Number(pctVal);
+      const next = { ...current, discountPercentage: pctVal };
+      if (!Number.isNaN(pct) && pct > 0 && pct <= 100) {
+        if (current.price) {
+          next.discountPrice = String(Math.round(Number(current.price) * (1 - pct / 100)));
+        }
+        if (!current.discountTag || current.discountTag.endsWith("% OFF")) {
+          next.discountTag = `${pct}% OFF`;
+        }
+      } else if (!pctVal) {
+        next.discountPrice = "";
+        next.discountTag = "";
+      }
+      return next;
+    });
+  };
+
+  const handleDiscountPriceChange = (discVal) => {
+    setProduct((current) => {
+      const next = { ...current, discountPrice: discVal };
+      const disc = Number(discVal);
+      const price = Number(current.price);
+      if (price > 0 && disc > 0 && disc < price) {
+        const pct = Math.round(((price - disc) / price) * 100);
+        next.discountPercentage = String(pct);
+        if (!current.discountTag || current.discountTag.endsWith("% OFF")) {
+          next.discountTag = `${pct}% OFF`;
+        }
+      } else if (!discVal) {
+        next.discountPercentage = "";
+        next.discountTag = "";
+      }
+      return next;
+    });
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (!product) return;
@@ -68,6 +119,8 @@ export default function EditProductPage({ params }) {
         ...product,
         price: Number(product.price),
         discountPrice: product.discountPrice === "" || product.discountPrice === null || product.discountPrice === undefined ? null : Number(product.discountPrice),
+        discountPercentage: product.discountPercentage === "" || product.discountPercentage === null || product.discountPercentage === undefined ? null : Number(product.discountPercentage),
+        discountTag: product.discountTag ? String(product.discountTag).trim() : null,
         stock: Number(product.stock),
         images,
         imageAssets: imageItems.filter((item) => item.publicId).map((item) => ({ publicId: item.publicId, url: item.url })),
@@ -97,8 +150,57 @@ export default function EditProductPage({ params }) {
         <label className="text-xs font-semibold">Brand<input required value={product.brand || ""} onChange={(e) => update("brand", e.target.value)} className="mt-1 w-full rounded-xl border border-stone-300 bg-stone-50 p-2.5" /></label>
         <label className="text-xs font-semibold">Category<select required value={product.category || ""} onChange={(e) => { const category = categories.find((item) => item.slug === e.target.value); update("category", e.target.value); update("subcategory", category?.subcategories?.[0] || ""); }} className="mt-1 w-full rounded-xl border border-stone-300 bg-stone-50 p-2.5">{categories.map((category) => <option key={category.slug} value={category.slug}>{category.name}</option>)}</select></label>
         <label className="text-xs font-semibold">Subcategory<input required value={product.subcategory || ""} onChange={(e) => update("subcategory", e.target.value)} className="mt-1 w-full rounded-xl border border-stone-300 bg-stone-50 p-2.5" /></label>
-        <label className="text-xs font-semibold">Price (BDT)<input required type="number" min="0.01" step="0.01" value={product.price ?? ""} onChange={(e) => update("price", e.target.value)} className="mt-1 w-full rounded-xl border border-stone-300 bg-stone-50 p-2.5" /></label>
-        <label className="text-xs font-semibold">Sale price (optional)<input type="number" min="0.01" step="0.01" value={product.discountPrice ?? ""} onChange={(e) => update("discountPrice", e.target.value)} className="mt-1 w-full rounded-xl border border-stone-300 bg-stone-50 p-2.5" /></label>
+        
+        <div className="sm:col-span-2 p-4 bg-stone-50 rounded-2xl border border-stone-200 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="font-bold text-stone-900 text-xs">Pricing & Discount Tags</span>
+            {product.discountTag && (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-rose-600 text-white font-extrabold text-[11px] shadow-xs">
+                Badge: {product.discountTag}
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <label className="text-xs font-semibold">
+              Regular Price (BDT ৳) *
+              <input required type="number" min="0.01" step="0.01" value={product.price ?? ""} onChange={(e) => handlePriceChange(e.target.value)} className="mt-1 w-full rounded-xl border border-stone-300 bg-white p-2.5 font-mono" />
+            </label>
+            <label className="text-xs font-semibold">
+              Discount Rate (% off)
+              <div className="relative mt-1">
+                <input type="number" min="0" max="100" step="1" placeholder="e.g. 12" value={product.discountPercentage ?? ""} onChange={(e) => handlePercentageChange(e.target.value)} className="w-full rounded-xl border border-stone-300 bg-white p-2.5 pr-8 font-mono" />
+                <span className="absolute right-3 top-2.5 text-stone-400 font-bold">%</span>
+              </div>
+            </label>
+            <label className="text-xs font-semibold">
+              Sale Price (BDT ৳)
+              <input type="number" min="0.01" step="0.01" value={product.discountPrice ?? ""} onChange={(e) => handleDiscountPriceChange(e.target.value)} className="mt-1 w-full rounded-xl border border-stone-300 bg-white p-2.5 font-mono" />
+            </label>
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-semibold">Discount Tag (e.g. &quot;12% OFF&quot;)</span>
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-stone-500 font-medium">Presets:</span>
+                {[10, 12, 15, 20, 25].map((pct) => (
+                  <button
+                    key={pct}
+                    type="button"
+                    onClick={() => handlePercentageChange(String(pct))}
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-colors ${
+                      String(product.discountPercentage) === String(pct)
+                        ? "bg-rose-600 text-white border-rose-600"
+                        : "bg-white text-stone-700 border-stone-300 hover:border-stone-400"
+                    }`}
+                  >
+                    {pct}%
+                  </button>
+                ))}
+              </div>
+            </div>
+            <input placeholder="e.g. 12% OFF or Clearance Deal" value={product.discountTag ?? ""} onChange={(e) => update("discountTag", e.target.value)} className="w-full rounded-xl border border-stone-300 bg-white p-2.5 text-xs" />
+          </div>
+        </div>
         <label className="text-xs font-semibold">Stock<input required type="number" min="0" step="1" value={product.stock ?? 0} onChange={(e) => update("stock", e.target.value)} className="mt-1 w-full rounded-xl border border-stone-300 bg-stone-50 p-2.5" /></label>
         <label className="text-xs font-semibold">Country of origin<input value={product.countryOfOrigin || ""} onChange={(e) => update("countryOfOrigin", e.target.value)} className="mt-1 w-full rounded-xl border border-stone-300 bg-stone-50 p-2.5" /></label>
         <div className="sm:col-span-2">

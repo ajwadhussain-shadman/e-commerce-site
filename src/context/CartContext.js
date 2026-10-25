@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { useToast } from "./ToastContext";
 import { toMinorUnits, fromMinorUnits } from "@/lib/currency.mjs";
+import { couponService } from "@/services/productService";
 
 const CartContext = createContext(null);
 const CART_STORAGE_KEY = "novella_cart_v1";
@@ -10,7 +11,8 @@ const CART_STORAGE_KEY = "novella_cart_v1";
 const AVAILABLE_COUPONS = {
   "IMPORT10": { code: "IMPORT10", type: "percent", value: 10, minSpend: 0, desc: "10% off entire order" },
   "WELCOME500": { code: "WELCOME500", type: "flat", value: 500, minSpend: 2000, desc: "৳500 off on orders above ৳2,000" },
-  "FREESHIP": { code: "FREESHIP", type: "shipping", value: 100, minSpend: 0, desc: "Free delivery nationwide" }
+  "FREESHIP": { code: "FREESHIP", type: "shipping", value: 100, minSpend: 0, desc: "Free delivery nationwide" },
+  "SAVE12": { code: "SAVE12", type: "percent", value: 12, minSpend: 1000, maxDiscount: 1500, desc: "12% off storewide discount" },
 };
 
 export function CartProvider({ children }) {
@@ -91,12 +93,37 @@ export function CartProvider({ children }) {
     }
   };
 
-  const applyCoupon = (code) => {
-    const cleanCode = code.toUpperCase().trim();
-    const coupon = AVAILABLE_COUPONS[cleanCode];
+  const applyCoupon = async (code) => {
+    const cleanCode = String(code || "").toUpperCase().trim();
+    if (!cleanCode) return false;
 
+    try {
+      const res = await couponService.validateCoupon(cleanCode, subtotal);
+      if (res?.valid && res.coupon) {
+        const c = res.coupon;
+        const couponObj = {
+          code: c.code,
+          type: c.discountType,
+          value: c.discountValue,
+          maxDiscount: c.maxDiscount,
+          minSpend: c.minSpend,
+          desc: c.description,
+          freeShipping: Boolean(c.freeShipping),
+        };
+        setAppliedCoupon(couponObj);
+        addToast(`Coupon "${c.code}" applied: ${c.description}`, "success");
+        return true;
+      }
+    } catch (err) {
+      if (err.message && !err.message.includes("failed to fetch") && !err.message.includes("The API request failed")) {
+        addToast(err.message, "error");
+        return false;
+      }
+    }
+
+    const coupon = AVAILABLE_COUPONS[cleanCode];
     if (!coupon) {
-      addToast("Invalid coupon code. Try 'IMPORT10' or 'WELCOME500'", "error");
+      addToast("Invalid coupon code.", "error");
       return false;
     }
 
@@ -132,10 +159,15 @@ export function CartProvider({ children }) {
   let discountMinor = 0;
   if (appliedCoupon) {
     if (appliedCoupon.type === "percent") {
-      discountMinor = Math.round((subtotalMinor * appliedCoupon.value) / 100);
+      let calc = Math.round((subtotalMinor * appliedCoupon.value) / 100);
+      if (appliedCoupon.maxDiscount) {
+        const maxCapMinor = toMinorUnits(appliedCoupon.maxDiscount);
+        if (maxCapMinor !== null && calc > maxCapMinor) calc = maxCapMinor;
+      }
+      discountMinor = calc;
     } else if (appliedCoupon.type === "flat") {
       discountMinor = Math.min(toMinorUnits(appliedCoupon.value) || 0, subtotalMinor);
-    } else if (appliedCoupon.type === "shipping") {
+    } else if (appliedCoupon.type === "shipping" || appliedCoupon.freeShipping) {
       shippingMinor = 0;
     }
   }

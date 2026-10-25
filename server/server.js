@@ -20,10 +20,19 @@ async function ensureIndexes(db) {
   catch (error) { if (error?.code !== 48 && error?.codeName !== "NamespaceExists") throw error; }
   try { await db.createCollection("reviews"); }
   catch (error) { if (error?.code !== 48 && error?.codeName !== "NamespaceExists") throw error; }
+  try { await db.createCollection("coupons"); }
+  catch (error) { if (error?.code !== 48 && error?.codeName !== "NamespaceExists") throw error; }
+  try { await db.createCollection("discountRules"); }
+  catch (error) { if (error?.code !== 48 && error?.codeName !== "NamespaceExists") throw error; }
   const products = db.collection("products");
   const orders = db.collection("orders");
   const categories = db.collection("categories");
   const reviews = db.collection("reviews");
+  const coupons = db.collection("coupons");
+  const discountRules = db.collection("discountRules");
+  await coupons.createIndex({ code: 1 }, { unique: true }).catch(() => {});
+  await coupons.createIndex({ isActive: 1, isApproved: 1 }).catch(() => {});
+  await discountRules.createIndex({ targetType: 1, isActive: 1 }).catch(() => {});
   const duplicateSlug = await products.aggregate([
     { $match: { slug: { $type: "string", $ne: "" } } },
     { $group: { _id: "$slug", count: { $sum: 1 } } },

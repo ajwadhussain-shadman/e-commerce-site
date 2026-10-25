@@ -12,7 +12,8 @@ import {
   Star,
   ArrowLeft,
   X,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Ticket,
 } from "lucide-react";
 import Logo from "../common/Logo";
 
@@ -24,6 +25,7 @@ export default function AdminSidebar({ isOpen, onClose }) {
     { label: "All Products", href: "/admin/products", icon: Package },
     { label: "Add New Product", href: "/admin/products/new", icon: PlusCircle },
     { label: "Categories", href: "/admin/categories", icon: Tags },
+    { label: "Promo Codes & Discounts", href: "/admin/coupons", icon: Ticket },
     { label: "Banners", href: "/admin/banners", icon: ImageIcon },
     { label: "Orders & Shipping", href: "/admin/orders", icon: ShoppingBag },
     { label: "Reviews", href: "/admin/reviews", icon: Star },

@@ -219,9 +219,9 @@ export default function ProductDetailPage({ params }) {
 
                   {/* Badges */}
                   <div className="absolute top-4 left-4 flex flex-col gap-1.5 z-10">
-                    {discountPercent > 0 && (
-                      <span className="px-2.5 py-1 bg-rose-600 text-white text-xs font-extrabold rounded-lg shadow-sm">
-                        -{discountPercent}% OFF
+                    {(product.discountTag || discountPercent > 0) && (
+                      <span className="px-2.5 py-1 bg-rose-600 text-white text-xs font-extrabold rounded-lg shadow-sm uppercase tracking-wide">
+                        {product.discountTag || `-${discountPercent}% OFF`}
                       </span>
                     )}
                     {product.isBestSeller && (

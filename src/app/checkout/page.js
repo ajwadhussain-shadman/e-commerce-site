@@ -13,7 +13,7 @@ import { useToast } from "@/context/ToastContext";
 import { orderService } from "@/services/orderService";
 import { formatBDT, toMinorUnits, fromMinorUnits } from "@/lib/currency.mjs";
 import { getPrimaryImage } from "@/lib/product-images.mjs";
-import { Truck, Banknote, CheckCircle2, ArrowRight, Sparkles } from "lucide-react";
+import { Truck, Banknote, CheckCircle2, ArrowRight, Sparkles, X } from "lucide-react";
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -24,12 +24,15 @@ export default function CheckoutPage() {
     shippingFee, 
     total, 
     appliedCoupon, 
+    applyCoupon,
+    removeCoupon,
     clearCart,
     deliveryArea,
     setDeliveryArea
   } = useCart();
   const { user } = useAuth();
   const { addToast } = useToast();
+  const [couponInput, setCouponInput] = useState("");
 
   // Form states initialized with user data if available
   const [formData, setFormData] = useState({
@@ -409,6 +412,48 @@ export default function CheckoutPage() {
                   </div>
                 </div>
               ))}
+            </div>
+ 
+            {/* Promo Code Entry */}
+            <div className="pt-3 border-t border-stone-100">
+              {appliedCoupon ? (
+                <div className="flex items-center justify-between p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800">
+                  <span className="font-semibold flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                    {appliedCoupon.code} ({appliedCoupon.desc})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={removeCoupon}
+                    className="p-1 hover:text-red-700 font-bold"
+                    aria-label="Remove promo code"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Promo code (e.g. SAVE12)"
+                    value={couponInput}
+                    onChange={(e) => setCouponInput(e.target.value)}
+                    className="flex-1 px-3 py-1.5 bg-stone-50 text-stone-900 placeholder-stone-400 text-xs rounded-xl border border-stone-200 focus:outline-hidden focus:border-amber-700 font-mono uppercase"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (couponInput.trim()) {
+                        applyCoupon(couponInput.trim());
+                        setCouponInput("");
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold rounded-xl transition-colors shrink-0"
+                  >
+                    Apply
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Calculations */}

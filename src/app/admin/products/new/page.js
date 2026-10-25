@@ -22,6 +22,8 @@ export default function AdminNewProductPage() {
     subcategory: "",
     price: "",
     discountPrice: "",
+    discountPercentage: "",
+    discountTag: "",
     stock: "0",
     size: "",
     countryOfOrigin: "",
@@ -46,6 +48,57 @@ export default function AdminNewProductPage() {
   }, []);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handlePriceChange = (val) => {
+    setFormData(prev => {
+      const next = { ...prev, price: val };
+      if (val && prev.discountPercentage) {
+        const pct = Number(prev.discountPercentage);
+        if (pct > 0 && pct <= 100) {
+          next.discountPrice = String(Math.round(Number(val) * (1 - pct / 100)));
+        }
+      }
+      return next;
+    });
+  };
+
+  const handlePercentageChange = (pctVal) => {
+    setFormData(prev => {
+      const pct = Number(pctVal);
+      const next = { ...prev, discountPercentage: pctVal };
+      if (!Number.isNaN(pct) && pct > 0 && pct <= 100) {
+        if (prev.price) {
+          next.discountPrice = String(Math.round(Number(prev.price) * (1 - pct / 100)));
+        }
+        if (!prev.discountTag || prev.discountTag.endsWith("% OFF")) {
+          next.discountTag = `${pct}% OFF`;
+        }
+      } else if (!pctVal) {
+        next.discountPrice = "";
+        next.discountTag = "";
+      }
+      return next;
+    });
+  };
+
+  const handleDiscountPriceChange = (discVal) => {
+    setFormData(prev => {
+      const next = { ...prev, discountPrice: discVal };
+      const disc = Number(discVal);
+      const price = Number(prev.price);
+      if (price > 0 && disc > 0 && disc < price) {
+        const pct = Math.round(((price - disc) / price) * 100);
+        next.discountPercentage = String(pct);
+        if (!prev.discountTag || prev.discountTag.endsWith("% OFF")) {
+          next.discountTag = `${pct}% OFF`;
+        }
+      } else if (!discVal) {
+        next.discountPercentage = "";
+        next.discountTag = "";
+      }
+      return next;
+    });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -87,6 +140,8 @@ export default function AdminNewProductPage() {
         subcategory: formData.subcategory,
         price: Number(formData.price),
         discountPrice: formData.discountPrice ? Number(formData.discountPrice) : null,
+        discountPercentage: formData.discountPercentage ? Number(formData.discountPercentage) : null,
+        discountTag: formData.discountTag ? formData.discountTag.trim() : null,
         stock: Number(formData.stock),
         size: formData.size,
         countryOfOrigin: formData.countryOfOrigin,
@@ -225,52 +280,114 @@ export default function AdminNewProductPage() {
           </div>
         </div>
 
-        {/* Row 3: Pricing and Stock */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label className="font-semibold text-stone-700 block mb-1">
-              Regular Price (BDT ৳) *
-            </label>
-            <input
-              type="number"
-              required
-              min="0.01"
-              step="0.01"
-              inputMode="decimal"
-              placeholder="e.g. 850"
-              value={formData.price}
-              onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
-              className="w-full p-2.5 bg-stone-50 border border-stone-300 rounded-xl font-mono focus:outline-hidden focus:border-amber-700"
-            />
+        {/* Row 3: Pricing, Discount Tag & Stock */}
+        <div className="p-4 bg-stone-50/80 rounded-2xl border border-stone-200 space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="font-bold text-stone-900 text-sm">Catalog Pricing & Discount Tags</span>
+            {formData.discountTag && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-600 text-white font-extrabold text-[11px] shadow-xs">
+                Preview Badge: {formData.discountTag}
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <div>
+              <label className="font-semibold text-stone-700 block mb-1">
+                Regular Price (BDT ৳) *
+              </label>
+              <input
+                type="number"
+                required
+                min="0.01"
+                step="0.01"
+                inputMode="decimal"
+                placeholder="e.g. 850"
+                value={formData.price}
+                onChange={(e) => handlePriceChange(e.target.value)}
+                className="w-full p-2.5 bg-white border border-stone-300 rounded-xl font-mono focus:outline-hidden focus:border-amber-700"
+              />
+            </div>
+
+            <div>
+              <label className="font-semibold text-stone-700 block mb-1">
+                Discount Rate (% off)
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="1"
+                  placeholder="e.g. 12"
+                  value={formData.discountPercentage}
+                  onChange={(e) => handlePercentageChange(e.target.value)}
+                  className="w-full p-2.5 bg-white border border-stone-300 rounded-xl font-mono focus:outline-hidden focus:border-amber-700 pr-8"
+                />
+                <span className="absolute right-3 top-2.5 text-stone-400 font-bold">%</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="font-semibold text-stone-700 block mb-1">
+                Discount Price (BDT ৳)
+              </label>
+              <input
+                type="number"
+                min="0.01"
+                step="0.01"
+                inputMode="decimal"
+                placeholder="e.g. 748"
+                value={formData.discountPrice}
+                onChange={(e) => handleDiscountPriceChange(e.target.value)}
+                className="w-full p-2.5 bg-white border border-stone-300 rounded-xl font-mono focus:outline-hidden focus:border-amber-700"
+              />
+            </div>
+
+            <div>
+              <label className="font-semibold text-stone-700 block mb-1">
+                Warehouse Stock *
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={formData.stock}
+                onChange={(e) => setFormData(prev => ({ ...prev, stock: e.target.value }))}
+                className="w-full p-2.5 bg-white border border-stone-300 rounded-xl font-mono focus:outline-hidden focus:border-amber-700"
+              />
+            </div>
           </div>
 
           <div>
-            <label className="font-semibold text-stone-700 block mb-1">
-              Discount Price (BDT ৳, Optional)
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="font-semibold text-stone-700">
+                Discount Tag / Badge Text (e.g. &quot;12% OFF&quot;, &quot;Special Deal&quot;)
+              </label>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-stone-500 font-medium">Quick presets:</span>
+                {[10, 12, 15, 20, 25].map((pct) => (
+                  <button
+                    key={pct}
+                    type="button"
+                    onClick={() => handlePercentageChange(String(pct))}
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-colors ${
+                      formData.discountPercentage === String(pct)
+                        ? "bg-rose-600 text-white border-rose-600"
+                        : "bg-white text-stone-700 border-stone-300 hover:border-stone-400"
+                    }`}
+                  >
+                    {pct}%
+                  </button>
+                ))}
+              </div>
+            </div>
             <input
-              type="number"
-              min="0.01"
-              step="0.01"
-              inputMode="decimal"
-              placeholder="e.g. 720"
-              value={formData.discountPrice}
-              onChange={(e) => setFormData(prev => ({ ...prev, discountPrice: e.target.value }))}
-              className="w-full p-2.5 bg-stone-50 border border-stone-300 rounded-xl font-mono focus:outline-hidden focus:border-amber-700"
-            />
-          </div>
-
-          <div>
-            <label className="font-semibold text-stone-700 block mb-1">
-              Warehouse Stock (Units)
-            </label>
-            <input
-              type="number"
-              min="0"
-              step="1"
-              value={formData.stock}
-              onChange={(e) => setFormData(prev => ({ ...prev, stock: e.target.value }))}
-              className="w-full p-2.5 bg-stone-50 border border-stone-300 rounded-xl font-mono focus:outline-hidden focus:border-amber-700"
+              type="text"
+              placeholder="e.g. 12% OFF or Mega Deal"
+              value={formData.discountTag}
+              onChange={(e) => setFormData(prev => ({ ...prev, discountTag: e.target.value }))}
+              className="w-full p-2.5 bg-white border border-stone-300 rounded-xl focus:outline-hidden focus:border-amber-700"
             />
           </div>
         </div>
